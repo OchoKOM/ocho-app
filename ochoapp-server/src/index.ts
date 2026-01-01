@@ -92,6 +92,8 @@ async function getFormattedRooms(
   cursor?: string | null
 ): Promise<RoomsSection> {
   const pageSize = 10;
+  // On récupère d'abord l'user pour être sûr d'avoir ses infos à jour si besoin
+  // Note: Dans une app optimisée, on pourrait passer l'objet user directement si on l'a déjà
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: getUserDataSelect(userId, username),
@@ -402,7 +404,7 @@ io.on("connection", async (socket) => {
   // --- GESTION DU TYPING (SAISIE) ---
 
   socket.on("typing_start", async (roomId: string) => {
-    console.log(chalk.magenta(displayName, "ecrit..."));
+    // console.log(chalk.magenta(displayName, "ecrit..."));
     
     if (!roomId.startsWith("saved-")) {
       const membership = await prisma.roomMember.findUnique({
@@ -446,7 +448,7 @@ io.on("connection", async (socket) => {
     }
   });
 
-  // --- GESTION DE LA SUPPRESSION (Nouveau) ---
+  // --- GESTION DE LA SUPPRESSION (Optimisée pour tout le monde) ---
   socket.on(
     "delete_message",
     async ({ messageId, roomId }: { messageId: string; roomId: string }) => {
@@ -481,13 +483,7 @@ io.on("connection", async (socket) => {
           });
 
           // 3. Mettre à jour la table LastMessage pour TOUS les utilisateurs de cette room
-          // Si le message qu'on supprime était référencé dans LastMessage, il faut changer le pointeur
-          // Si nextLatestMessage n'existe pas (room vide), on pourrait supprimer l'entrée LastMessage, 
-          // mais généralement il reste au moins le message "CREATED".
-          
           if (nextLatestMessage) {
-            // On met à jour toutes les entrées LastMessage qui pointaient vers le message supprimé
-            // ou qui sont dans cette room (pour être sûr que la date est synchro)
             await tx.lastMessage.updateMany({
               where: {
                 roomId: roomId,
@@ -499,7 +495,7 @@ io.on("connection", async (socket) => {
               },
             });
           } else {
-             // Cas rare : Plus aucun message (même pas CREATE ?). On nettoie LastMessage.
+             // Cas rare : Plus aucun message. On nettoie LastMessage.
              await tx.lastMessage.deleteMany({
                 where: { roomId: roomId, messageId: messageId }
              });
@@ -514,29 +510,33 @@ io.on("connection", async (socket) => {
         // 5. Notifier tout le monde dans la room que le message a disparu
         io.to(roomId).emit("message_deleted", { messageId, roomId });
 
-        // 6. Forcer une mise à jour de la liste des discussions pour les membres
-        // Car le snippet (dernier message) a changé dans la sidebar
+        // 6. DIFFUSION INTELLIGENTE DE LA MISE A JOUR SIDEBAR
+        // On doit re-calculer la liste des rooms pour *chaque membre* car le contenu peut varier
+        
+        // A. Trouver tous les membres actifs (pas bannis, pas partis)
+        // On include 'user' pour avoir le username nécessaire à getFormattedRooms
         const activeMembers = await prisma.roomMember.findMany({
             where: { roomId, leftAt: null, type: { not: "BANNED" } },
+            include: { user: true }
         });
           
-        for (const member of activeMembers) {
-            if (member.userId) {
+        // B. Boucle parallèle pour mettre à jour tout le monde
+        // On utilise Promise.all pour ne pas bloquer le serveur séquentiellement
+        await Promise.all(activeMembers.map(async (member) => {
+            if (member.userId && member.user) {
               try {
-                // On renvoie la liste complète à jour pour que la sidebar soit correcte
-                // C'est un peu lourd mais garantit la cohérence.
-                // Alternativement, on pourrait envoyer un event "room_updated" léger.
+                // On génère la vue spécifique à ce membre
                 const updatedRooms = await getFormattedRooms(
                   member.userId,
-                  username // Note: 'username' est celui de l'émetteur ici, mais getFormattedRooms l'utilise peu si userId est bon
+                  member.user.username
                 );
-                // Envoyer au socket spécifique de l'utilisateur
+                // On envoie à SON canal socket personnel (userId)
                 io.to(member.userId).emit("rooms_list_data", updatedRooms);
               } catch (e) {
-                console.error("Erreur refresh member room list:", member.userId);
+                console.error(`Erreur refresh sidebar pour ${member.userId}:`, e);
               }
             }
-        }
+        }));
 
       } catch (error) {
         console.error("Erreur delete_message:", error);
@@ -615,6 +615,7 @@ io.on("connection", async (socket) => {
           // 4. Mise à jour des LastMessage pour les membres actifs
           const activeMembers = await prisma.roomMember.findMany({
             where: { roomId, leftAt: null, type: { not: "BANNED" } },
+            include: { user: true } // Ajout pour récupérer le username
           });
 
           for (const member of activeMembers) {
@@ -637,21 +638,22 @@ io.on("connection", async (socket) => {
             roomId,
             newRoom: roomData, // Utile pour remonter la sidebar chez les autres
           });
-          // 2. FORCER LE RE-CALCUL DE GET_ROOMS POUR TOUS LES MEMBRES ACTIFS
-          // Cela permet de faire remonter la room en haut de la liste chez tout le monde
-          for (const member of activeMembers) {
-            if (member.userId) {
+          
+          // 6. FORCER LE RE-CALCUL DE GET_ROOMS POUR TOUS LES MEMBRES ACTIFS
+          // Mêmes correctifs que pour delete_message : on loop sur tout le monde
+          await Promise.all(activeMembers.map(async (member) => {
+            if (member.userId && member.user) {
               try {
                 const updatedRooms = await getFormattedRooms(
                   member.userId,
-                  username
+                  member.user.username
                 );
                 io.to(member.userId).emit("rooms_list_data", updatedRooms);
               } catch (e) {
                 console.error("Erreur refresh member:", member.userId);
               }
             }
-          }
+          }));
         }
       } catch (error) {
         console.error("Erreur send_message:", error);
