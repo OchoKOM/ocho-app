@@ -5,17 +5,10 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { $Enums, MessageType, PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
 import cookieParser from "cookie-parser";
 import chalk from "chalk";
-import {
-  getChatRoomDataInclude,
-  getMessageDataInclude,
-  getUserDataSelect,
-  MessageData,
-  RoomData,
-  RoomsSection,
-} from "./types";
+import { getChatRoomDataInclude, getMessageDataInclude } from "./types";
+import { getFormattedRooms, getMessageReactions } from "./utils";
 
 dotenv.config();
 
@@ -84,89 +77,6 @@ interface TypingUser {
   avatarUrl: string | null;
 }
 const typingUsersByRoom = new Map<string, Map<string, TypingUser>>();
-
-// --- LOGIQUE RÉUTILISABLE POUR OBTENIR LES ROOMS ---
-async function getFormattedRooms(
-  userId: string,
-  username: string,
-  cursor?: string | null
-): Promise<RoomsSection> {
-  const pageSize = 10;
-  // On récupère d'abord l'user pour être sûr d'avoir ses infos à jour si besoin
-  // Note: Dans une app optimisée, on pourrait passer l'objet user directement si on l'a déjà
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: getUserDataSelect(userId, username),
-  });
-
-  if (!user) throw new Error("User not found");
-
-  const lastMessages = await prisma.lastMessage.findMany({
-    where: { userId },
-    select: {
-      roomId: true,
-      messageId: true,
-      message: { include: getMessageDataInclude(userId) },
-      room: { include: getChatRoomDataInclude() },
-    },
-    orderBy: { createdAt: "desc" },
-    take: pageSize + 1,
-    cursor: cursor ? { userId_roomId: { userId, roomId: cursor } } : undefined,
-  });
-
-  const rooms: RoomData[] = lastMessages
-    .map((lm) => {
-      const lastMsg = lm.message as MessageData | null;
-      const roomData = lm.room;
-      if (!roomData) return null;
-      return {
-        ...roomData,
-        messages: lastMsg ? [lastMsg] : [],
-        members: roomData.members || [],
-      } as RoomData;
-    })
-    .filter((r): r is RoomData => r !== null);
-
-  if (!cursor) {
-    const selfMessage = await prisma.message.findFirst({
-      where: { senderId: userId, type: "SAVED" },
-      include: getMessageDataInclude(userId),
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (selfMessage) {
-      const selfRoom: RoomData = {
-        id: `saved-${userId}`,
-        name: null,
-        description: null,
-        groupAvatarUrl: null,
-        privilege: "MANAGE",
-        isGroup: false,
-        createdAt: selfMessage.createdAt,
-        maxMembers: 1,
-        members: [
-          {
-            user,
-            userId: user.id,
-            type: "OWNER",
-            joinedAt: user.createdAt,
-            leftAt: null,
-          },
-        ],
-        messages: [selfMessage as MessageData],
-      };
-      rooms.unshift(selfRoom);
-    }
-  }
-
-  let nextCursor: string | null = null;
-  if (rooms.length > pageSize) {
-    const nextItem = rooms.pop();
-    nextCursor = nextItem ? nextItem.id : null;
-  }
-
-  return { rooms, nextCursor };
-}
 
 // --- SOCKET.IO SETUP ---
 
@@ -405,7 +315,7 @@ io.on("connection", async (socket) => {
 
   socket.on("typing_start", async (roomId: string) => {
     // console.log(chalk.magenta(displayName, "ecrit..."));
-    
+
     if (!roomId.startsWith("saved-")) {
       const membership = await prisma.roomMember.findUnique({
         where: { roomId_userId: { roomId, userId } },
@@ -424,11 +334,11 @@ io.on("connection", async (socket) => {
     roomTyping.set(userId, { id: userId, displayName, avatarUrl });
 
     // On envoie la liste de TOUS ceux qui écrivent dans cette room
-  const typingUsers = Array.from(roomTyping.values());
+    const typingUsers = Array.from(roomTyping.values());
 
-  // 5. Diffusion
-  // On utilise socket.to(roomId) pour informer tous les AUTRES membres
-  socket.to(roomId).emit("typing_update", { roomId, typingUsers });
+    // 5. Diffusion
+    // On utilise socket.to(roomId) pour informer tous les AUTRES membres
+    socket.to(roomId).emit("typing_update", { roomId, typingUsers });
   });
 
   socket.on("typing_stop", (roomId: string) => {
@@ -448,12 +358,277 @@ io.on("connection", async (socket) => {
     }
   });
 
+  // --- GESTION DES RÉACTIONS ---
+  socket.on(
+    "add_reaction",
+    async ({
+      messageId,
+      roomId,
+      content,
+    }: {
+      messageId: string;
+      roomId: string;
+      content: string;
+    }) => {
+      try {
+        const userId = socket.data.user.id;
+        const username = socket.data.user.username;
+
+        // 1. Validation de l'appartenance à la room
+        if (!roomId.startsWith("saved-")) {
+          const membership = await prisma.roomMember.findUnique({
+            where: { roomId_userId: { roomId, userId } },
+          });
+          if (
+            !membership ||
+            membership.type === "BANNED" ||
+            membership.leftAt
+          ) {
+            return socket.emit("error", { message: "Non autorisé" });
+          }
+        }
+
+        // 2. Récupération du message original pour identifier l'auteur
+        const originalMessage = await prisma.message.findUnique({
+          where: { id: messageId },
+          select: {
+            senderId: true,
+            roomId: true,
+            sender: { select: { id: true, username: true } },
+          },
+        });
+
+        if (!originalMessage) return;
+
+        // 3. UPSERT de la réaction (création ou mise à jour)
+        const reaction = await prisma.reaction.upsert({
+          where: {
+            userId_messageId: {
+              userId,
+              messageId,
+            },
+          },
+          create: {
+            userId,
+            messageId,
+            content,
+          },
+          update: {
+            content,
+            readAt: new Date(),
+          },
+          select: { id: true },
+        });
+
+        // 4. Gestion de la notification via Message de type REACTION
+        // Uniquement si l'utilisateur réagit au message de quelqu'un d'autre
+        if (userId !== originalMessage.senderId) {
+          // Suppression des anciennes notifications identiques pour cette réaction
+          await prisma.message.deleteMany({
+            where: {
+              senderId: userId,
+              recipientId: originalMessage.senderId,
+              roomId: originalMessage.roomId,
+              type: "REACTION",
+              reactionId: reaction.id,
+            },
+          });
+
+          // Création du message de notification technique
+          const reactionMessage = await prisma.message.create({
+            data: {
+              senderId: userId,
+              recipientId: originalMessage.senderId,
+              type: "REACTION",
+              content: content,
+              roomId: originalMessage.roomId,
+              reactionId: reaction.id,
+            },
+          });
+
+          // 5. MISE À JOUR DES LAST MESSAGES (Uniquement pour les 2 concernés)
+          if (reactionMessage.id && originalMessage.roomId) {
+            // On utilise une transaction pour supprimer et recréer proprement
+            // Cela garantit que le "LastMessage" pointe bien sur la dernière réaction
+            await prisma.lastMessage.deleteMany({
+              where: {
+                roomId: originalMessage.roomId,
+                userId: { in: [userId, originalMessage.senderId] },
+              },
+            });
+
+            await prisma.lastMessage.createMany({
+              data: [
+                {
+                  userId: userId, // L'envoyeur de la réaction
+                  roomId: originalMessage.roomId,
+                  messageId: reactionMessage.id,
+                },
+                {
+                  userId: originalMessage.senderId, // L'auteur du message original
+                  roomId: originalMessage.roomId,
+                  messageId: reactionMessage.id,
+                },
+              ],
+            });
+
+            // 6. MISE À JOUR DES ROOMS (Emission ciblée)
+            
+            if (originalMessage.sender?.username && originalMessage.senderId) {
+              // Récupération des listes de salons formatées pour les deux utilisateurs
+              const [roomsForSender, roomsForRecipient] = await Promise.all([
+                getFormattedRooms(userId, username),
+                getFormattedRooms(
+                  originalMessage.senderId,
+                  originalMessage.sender.username
+                ),
+              ]);
+              
+              console.log([roomsForSender, roomsForRecipient]);
+              // Envoyer la mise à jour à l'auteur de la réaction
+              io.to(userId).emit("rooms_list_data", roomsForSender);
+
+              // Envoyer la mise à jour à l'auteur du message original
+              io.to(originalMessage.senderId).emit(
+                "rooms_list_data",
+                roomsForRecipient
+              );
+            }
+          }
+        }
+
+        // 7. Diffusion globale de la mise à jour visuelle des réactions dans le tchat
+        const reactionsData = await getMessageReactions(messageId, userId);
+        io.to(roomId).emit("message_reaction_update", {
+          messageId,
+          reactions: reactionsData,
+        });
+      } catch (error) {
+        console.error("Erreur add_reaction:", error);
+        socket.emit("error", { message: "Impossible d'ajouter la réaction" });
+      }
+    }
+  );
+
+  socket.on(
+    "remove_reaction",
+    async ({ messageId, roomId }: { messageId: string; roomId: string }) => {
+      try {
+        const userId = socket.data.user.id;
+        const username = socket.data.user.username;
+
+        // 1. Récupération des informations nécessaires avant suppression
+        const message = await prisma.message.findUnique({
+          where: { id: messageId },
+          select: {
+            senderId: true,
+            roomId: true,
+            sender: { select: { id: true, username: true } },
+            reactions: {
+              where: { userId },
+              select: { id: true },
+            },
+          },
+        });
+
+        // Si le message n'existe pas ou si l'utilisateur n'a pas réagi, on arrête
+        if (!message || !message.reactions[0]) return;
+
+        const reactionId = message.reactions[0].id;
+        const originalSenderId = message.senderId;
+
+        // 2. Suppression atomique de la réaction et du message de notification
+        await prisma.$transaction([
+          prisma.reaction.delete({
+            where: { id: reactionId },
+          }),
+          prisma.message.deleteMany({
+            where: {
+              senderId: userId,
+              recipientId: originalSenderId,
+              roomId: message.roomId,
+              reactionId: reactionId,
+              type: "REACTION",
+            },
+          }),
+        ]);
+
+        // 3. MISE À JOUR DES LAST MESSAGES (Uniquement pour les 2 concernés)
+        // Après suppression, on doit recalculer quel est le dernier message réel pour ces deux utilisateurs
+        if (originalSenderId && message.roomId) {
+          // Fonction utilitaire locale pour restaurer le dernier message valide
+          const refreshLastMessage = async (targetId: string) => {
+            // On cherche le dernier message de la room qui n'est pas une notification de réaction supprimée
+            const lastValidMessage = await prisma.message.findFirst({
+              where: { roomId: message.roomId },
+              orderBy: { createdAt: "desc" },
+              select: { id: true },
+            });
+
+            if (lastValidMessage) {
+              await prisma.lastMessage.upsert({
+                where: {
+                  userId_roomId: {
+                    userId: targetId,
+                    roomId: message.roomId as string,
+                  },
+                },
+                create: {
+                  userId: targetId,
+                  roomId: message.roomId as string,
+                  messageId: lastValidMessage.id,
+                },
+                update: { messageId: lastValidMessage.id },
+              });
+            } else {
+              // Si plus aucun message dans la room, on nettoie
+              await prisma.lastMessage.deleteMany({
+                where: { userId: targetId, roomId: message.roomId as string },
+              });
+            }
+          };
+
+          // On rafraîchit pour l'auteur de la réaction et l'auteur du message
+          await Promise.all([
+            refreshLastMessage(userId),
+            refreshLastMessage(originalSenderId),
+          ]);
+
+          // 4. MISE À JOUR DES ROOMS (Emission ciblée)
+          if (message.sender?.username) {
+            const [roomsForRemover, roomsForAuthor] = await Promise.all([
+              getFormattedRooms(userId, username),
+              getFormattedRooms(originalSenderId, message.sender.username),
+            ]);
+
+            // --- CORRECTION ICI : PAS d'imbrication { rooms: ... } ---
+            io.to(userId).emit("rooms_list_data", roomsForRemover);
+            io.to(originalSenderId).emit("rooms_list_data", roomsForAuthor);
+          }
+        }
+
+        // 5. Diffusion globale de la mise à jour visuelle des réactions
+        const reactionsData = await getMessageReactions(messageId, userId);
+        io.to(roomId).emit("message_reaction_update", {
+          messageId,
+          reactions: reactionsData,
+        });
+      } catch (error) {
+        console.error("Erreur remove_reaction:", error);
+        socket.emit("error", {
+          message: "Impossible de supprimer la réaction",
+        });
+      }
+    }
+  );
   // --- GESTION DE LA SUPPRESSION (Optimisée pour tout le monde) ---
   socket.on(
     "delete_message",
     async ({ messageId, roomId }: { messageId: string; roomId: string }) => {
       const userId = socket.data.user.id;
-      console.log(chalk.red(`Tentative de suppression: msg ${messageId} par ${userId}`));
+      console.log(
+        chalk.red(`Tentative de suppression: msg ${messageId} par ${userId}`)
+      );
 
       try {
         // 1. Récupérer le message pour vérifier l'auteur
@@ -467,7 +642,9 @@ io.on("connection", async (socket) => {
 
         // Sécurité : Seul l'auteur peut supprimer
         if (messageToDelete.senderId !== userId) {
-          return socket.emit("error", { message: "Vous n'avez pas l'autorisation" });
+          return socket.emit("error", {
+            message: "Vous n'avez pas l'autorisation",
+          });
         }
 
         // TRANSACTION DE SUPPRESSION ET MISE A JOUR
@@ -495,10 +672,10 @@ io.on("connection", async (socket) => {
               },
             });
           } else {
-             // Cas rare : Plus aucun message. On nettoie LastMessage.
-             await tx.lastMessage.deleteMany({
-                where: { roomId: roomId, messageId: messageId }
-             });
+            // Cas rare : Plus aucun message. On nettoie LastMessage.
+            await tx.lastMessage.deleteMany({
+              where: { roomId: roomId, messageId: messageId },
+            });
           }
 
           // 4. Supprimer le message
@@ -512,17 +689,18 @@ io.on("connection", async (socket) => {
 
         // 6. DIFFUSION INTELLIGENTE DE LA MISE A JOUR SIDEBAR
         // On doit re-calculer la liste des rooms pour *chaque membre* car le contenu peut varier
-        
+
         // A. Trouver tous les membres actifs (pas bannis, pas partis)
         // On include 'user' pour avoir le username nécessaire à getFormattedRooms
         const activeMembers = await prisma.roomMember.findMany({
-            where: { roomId, leftAt: null, type: { not: "BANNED" } },
-            include: { user: true }
+          where: { roomId, leftAt: null, type: { not: "BANNED" } },
+          include: { user: true },
         });
-          
+
         // B. Boucle parallèle pour mettre à jour tout le monde
         // On utilise Promise.all pour ne pas bloquer le serveur séquentiellement
-        await Promise.all(activeMembers.map(async (member) => {
+        await Promise.all(
+          activeMembers.map(async (member) => {
             if (member.userId && member.user) {
               try {
                 // On génère la vue spécifique à ce membre
@@ -533,11 +711,14 @@ io.on("connection", async (socket) => {
                 // On envoie à SON canal socket personnel (userId)
                 io.to(member.userId).emit("rooms_list_data", updatedRooms);
               } catch (e) {
-                console.error(`Erreur refresh sidebar pour ${member.userId}:`, e);
+                console.error(
+                  `Erreur refresh sidebar pour ${member.userId}:`,
+                  e
+                );
               }
             }
-        }));
-
+          })
+        );
       } catch (error) {
         console.error("Erreur delete_message:", error);
         socket.emit("error", { message: "Impossible de supprimer le message" });
@@ -615,7 +796,7 @@ io.on("connection", async (socket) => {
           // 4. Mise à jour des LastMessage pour les membres actifs
           const activeMembers = await prisma.roomMember.findMany({
             where: { roomId, leftAt: null, type: { not: "BANNED" } },
-            include: { user: true } // Ajout pour récupérer le username
+            include: { user: true }, // Ajout pour récupérer le username
           });
 
           for (const member of activeMembers) {
@@ -638,22 +819,24 @@ io.on("connection", async (socket) => {
             roomId,
             newRoom: roomData, // Utile pour remonter la sidebar chez les autres
           });
-          
+
           // 6. FORCER LE RE-CALCUL DE GET_ROOMS POUR TOUS LES MEMBRES ACTIFS
           // Mêmes correctifs que pour delete_message : on loop sur tout le monde
-          await Promise.all(activeMembers.map(async (member) => {
-            if (member.userId && member.user) {
-              try {
-                const updatedRooms = await getFormattedRooms(
-                  member.userId,
-                  member.user.username
-                );
-                io.to(member.userId).emit("rooms_list_data", updatedRooms);
-              } catch (e) {
-                console.error("Erreur refresh member:", member.userId);
+          await Promise.all(
+            activeMembers.map(async (member) => {
+              if (member.userId && member.user) {
+                try {
+                  const updatedRooms = await getFormattedRooms(
+                    member.userId,
+                    member.user.username
+                  );
+                  io.to(member.userId).emit("rooms_list_data", updatedRooms);
+                } catch (e) {
+                  console.error("Erreur refresh member:", member.userId);
+                }
               }
-            }
-          }));
+            })
+          );
         }
       } catch (error) {
         console.error("Erreur send_message:", error);

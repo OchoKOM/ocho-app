@@ -34,12 +34,40 @@ export async function GET(
       });
   
       if (!message) {
+        console.log(message);
         return Response.json({ error: "Message non trouvé" }, { status: 404 });
       }
   
       const reactions: ReactionData[] = message.reactions;
+
+      const groupedMap = new Map<
+    string,
+    { 
+      content: string; 
+      count: number; 
+      hasReacted: boolean;
+      users: { id: string; displayName: string; avatarUrl: string | null; username: string }[] 
+    }
+  >();
+
+  reactions.forEach((r) => {
+    if (!groupedMap.has(r.content)) {
+      groupedMap.set(r.content, {
+        content: r.content,
+        count: 0,
+        hasReacted: false,
+        users: []
+      });
+    }
+    const entry = groupedMap.get(r.content)!;
+    entry.count++;
+    entry.users.push(r.user);
+    if (r.user.id === loggedInUser.id) {
+      entry.hasReacted = true;
+    }
+  });
   
-      return Response.json(reactions);
+      return Response.json(Array.from(groupedMap.values()));
     } catch (error) {
       console.error(error);
       return Response.json({ error: "Internal server error" }, { status: 500 });

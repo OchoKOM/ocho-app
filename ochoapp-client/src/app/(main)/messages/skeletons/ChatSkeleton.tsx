@@ -13,7 +13,7 @@ export default function ChatLoadingSkeleton({
 }: ChatLoadingSkeletonProps) {
   return (
     <div className="absolute flex h-full w-full flex-1 flex-col max-sm:bg-card/30">
-      <div className="flex w-full items-center gap-2 px-4 py-3 max-sm:bg-card/50 flex-shrink-0 *:flex-shrink-0">
+      <div className="flex w-full items-center gap-2 px-4 py-3 max-sm:bg-card/50 shrink-0">
         <div
           className="cursor-pointer sm:hidden"
           onClick={onChatClose}

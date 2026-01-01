@@ -1,5 +1,16 @@
 import {Dog, Flag, MapPin, Smile, Sparkles, Trophy, User, Utensils, Watch} from "lucide-react"
 
+export const SKIN_TONES = [
+  { id: "default", color: "#FFDC5D", modifier: "" },
+  { id: "light", color: "#F7DECE", modifier: "\u{1F3FB}" },
+  { id: "medium-light", color: "#F3CFB3", modifier: "\u{1F3FC}" },
+  { id: "medium", color: "#D1A279", modifier: "\u{1F3FD}" },
+  { id: "medium-dark", color: "#A67C52", modifier: "\u{1F3FE}" },
+  { id: "dark", color: "#5C3E36", modifier: "\u{1F3FF}" },
+];
+
+export const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+
 export const EMOJI_CATEGORIES = [
   {
     id: 'smileys',

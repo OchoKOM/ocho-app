@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-query";
 import kyInstance from "@/lib/ky";
 import { RoomData, MessagesSection, MessageData } from "@/lib/types";
-import Message, { TypingIndicator } from "./Message";
+import Message from "./Message";
 import InfiniteScrollContainer from "@/components/InfiniteScrollContainer";
 import {
   AlertCircle,
@@ -113,7 +113,7 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
     }) => {
       if (data.roomId === roomId) {
         console.log(data.typingUsers)
-        setTypingUsers(data.typingUsers);
+        setTypingUsers(data.typingUsers.filter((u) => u.id !== loggedUser?.id));
       }
     };
 
@@ -682,6 +682,92 @@ function SendingMessage({ content, status, onRetry }: SendingMessageProps) {
                 </span>
               )}
             </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type TypingIndicatorProps = {
+  typingUsers: {
+    id: string;
+    displayName: string;
+    avatarUrl: string;
+  }[];
+};
+
+export function TypingIndicator({ typingUsers = [] }: TypingIndicatorProps) {
+  if (!typingUsers.length) return null;
+  const MAX_AVATARS = 4;
+  const hasMore = typingUsers.length > MAX_AVATARS;
+  const visibleUsers = typingUsers.slice(
+    0,
+    hasMore ? MAX_AVATARS - 1 : MAX_AVATARS,
+  );
+  const remainingCount = typingUsers.length - visibleUsers.length;
+
+  return (
+    <div className="relative z-0 mb-4 flex w-full select-none gap-2 duration-300 animate-in fade-in slide-in-from-bottom-2">
+      {typingUsers.length === 1 ? (
+        <UserAvatar
+          userId={typingUsers[0].id}
+          avatarUrl={typingUsers[0].avatarUrl}
+          size={20}
+          key={typingUsers[0].id}
+          className="border-2 border-background"
+        />
+      ) : (
+        <div className="z-10 flex size-5 min-h-5 min-w-5 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+          {typingUsers.length || 0}
+        </div>
+      )}
+      <div className="relative flex w-full items-start gap-2">
+        {/* Container des Avatars (Stack avec limite) */}
+        {typingUsers.length > 1 && (
+          <div className="absolute left-0 top-full z-[2] flex h-8 -translate-y-[30%] items-center -space-x-2 overflow-hidden py-1">
+            {visibleUsers.map((user, index) => (
+              <UserAvatar
+                avatarUrl={user.avatarUrl}
+                size={20}
+                userId={user.id}
+                key={user.id}
+                className="animate-appear-r border-2 border-background"
+              />
+            ))}
+
+            {/* Badge pour le reste des personnes */}
+            {hasMore && (
+              <div className="z-10 flex h-6 w-6 animate-appear-r items-center justify-center rounded-full border-2 border-background bg-muted text-xs text-muted-foreground">
+                +{remainingCount}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Bulle animée */}
+        <div className="group/message relative w-fit max-w-[75%] select-none">
+          {/* Label textuel dynamique - Adapté pour "User 1, User 2 et X autres" */}
+          <div className="mb-1 ps-2 text-xs font-medium text-slate-500 transition-opacity dark:text-slate-400">
+            {typingUsers.length === 1
+              ? `${typingUsers[0].displayName.split(" ")[0]}`
+              : typingUsers.length === 2
+                ? `${typingUsers[0].displayName.split(" ")[0]} et ${typingUsers[1].displayName.split(" ")[0]} écrivent...`
+                : `${typingUsers[0].displayName.split(" ")[0]}, ${typingUsers[1].displayName.split(" ")[0]} et ${typingUsers.length - 2 == 1 ? typingUsers[2].displayName.split(" ")[0] : `${typingUsers.length - 2} autres`} écrivent...`}
+          </div>
+
+          <div className="relative h-fit w-fit">
+            <div
+              className={cn(
+                "w-fit select-none rounded-3xl bg-primary/10 p-3.5",
+              )}
+            >
+              <div className="flex gap-1">
+                <div className="h-2 w-2 animate-bounce-half rounded-full bg-muted-foreground/50 [animation-delay:-0.5s]"></div>
+                <div className="h-2 w-2 animate-bounce-half rounded-full bg-muted-foreground/50 [animation-delay:-0.25s]"></div>
+                <div className="h-2 w-2 animate-bounce-half rounded-full bg-muted-foreground/50"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

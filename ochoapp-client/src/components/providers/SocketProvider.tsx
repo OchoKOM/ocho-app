@@ -113,7 +113,7 @@ export default function SocketProvider({
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
-        transports: ["polling", "websocket"], 
+        transports: ["websocket", "polling"], 
         closeOnBeforeunload: true,
         // forceNew: true, // Parfois utile pour forcer une nouvelle instance, mais io() le fait généralement déjà
       }

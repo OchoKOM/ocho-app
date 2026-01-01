@@ -71,6 +71,7 @@ export default function SideBar({
 
     // Listener: Réception de la liste paginée
     const handleRoomsResponse = (response: { rooms: RoomData[], nextCursor: string | null }) => {
+      
       setRooms((prev) => {
         // STRATÉGIE : Si le premier élément de la réponse est déjà présent 
         // ou si nous savons que nous sommes sur une page suivante via une ref
@@ -103,6 +104,9 @@ export default function SideBar({
 
     // Listener: Mise à jour temps réel (Nouveau message, nouvelle room créée ailleurs, etc.)
     const handleRoomUpdate = (updatedRoom: RoomData) => {
+      console.log(updatedRoom);
+      
+      
       setRooms((prev) => {
         // On retire l'ancienne version de la room (si elle existe)
         const otherRooms = prev.filter((r) => r.id !== updatedRoom.id);
