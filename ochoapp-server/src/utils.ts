@@ -1,9 +1,20 @@
 import { PrismaClient } from "@prisma/client";
-import { getChatRoomDataInclude, getMessageDataInclude, getUserDataSelect, MessageData, RoomData, RoomsSection } from "./types";
+import {
+  getChatRoomDataInclude,
+  getMessageDataInclude,
+  getUserDataSelect,
+  MessageData,
+  RoomData,
+  RoomsSection,
+} from "./types";
 
 const prisma = new PrismaClient();
-//Fonction Helper pour formater les réactions avec les utilisateurs
-export async function getMessageReactions(messageId: string, currentUserId: string) {
+
+// --- HELPER: FORMATAGE DES RÉACTIONS ---
+export async function getMessageReactions(
+  messageId: string,
+  currentUserId: string
+) {
   const allReactions = await prisma.reaction.findMany({
     where: { messageId },
     select: {
@@ -62,8 +73,8 @@ export async function getFormattedRooms(
   cursor?: string | null
 ): Promise<RoomsSection> {
   const pageSize = 10;
-  // On récupère d'abord l'user pour être sûr d'avoir ses infos à jour si besoin
-  // Note: Dans une app optimisée, on pourrait passer l'objet user directement si on l'a déjà
+
+  // 1. Récupération de l'utilisateur
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: getUserDataSelect(userId, username),
@@ -71,6 +82,7 @@ export async function getFormattedRooms(
 
   if (!user) throw new Error("User not found");
 
+  // 2. Récupération des conversations standard via LastMessage
   const lastMessages = await prisma.lastMessage.findMany({
     where: { userId },
     select: {
@@ -97,25 +109,27 @@ export async function getFormattedRooms(
     })
     .filter((r): r is RoomData => r !== null);
 
+  // 3. Injection de la "Self Room" (Messages Enregistrés)
   if (!cursor) {
     const savedMessage = await prisma.message.findFirst({
       where: { senderId: userId, type: "SAVED" },
       include: getMessageDataInclude(userId),
       orderBy: { createdAt: "desc" },
     });
-    
-    // Logique mise à jour: si le contenu est "created", on met le type CREATE, sinon CONTENT.
-    let type = "CONTENT";
-    if (savedMessage?.content === "create-" + userId) {
-      type = "SAVED";
-    }
-
-    const selfMessage = {...savedMessage, type}
 
     if (savedMessage) {
+      // Logique visuelle : si le contenu est technique "create-userId", on le garde en SAVED (caché/système)
+      let type = "CONTENT";
+      if (savedMessage.content === "create-" + userId) {
+        type = "SAVED";
+      }
+
+      const selfMessage = { ...savedMessage, type };
+
+      // Création de la room virtuelle en mémoire
       const selfRoom: RoomData = {
-        id: `saved-${userId}`,
-        name: null,
+        id: `saved-${userId}`, // ID Virtuel
+        name: "Messages enregistrés",
         description: null,
         groupAvatarUrl: null,
         privilege: "MANAGE",
@@ -131,13 +145,15 @@ export async function getFormattedRooms(
             leftAt: null,
           },
         ],
-        // Ajout explicite du lastMessage comme demandé (correction du problème "pas de lastmessage")
         messages: [selfMessage as MessageData],
       };
+
+      // On l'ajoute au tout début de la liste
       rooms.unshift(selfRoom);
     }
   }
 
+  // 4. Gestion de la pagination
   let nextCursor: string | null = null;
   if (rooms.length > pageSize) {
     const nextItem = rooms.pop();

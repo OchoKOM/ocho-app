@@ -138,7 +138,7 @@ io.on("connection", async (socket) => {
     data: { isOnline: true },
   });
 
-  socket.join(userId); // Rejoindre sa room personnelle pour les notifs privées
+  socket.join(userId); // Rejoindre sa room personnelle pour les notifs privées / sidebar
 
   socket.on(
     "start_chat",
@@ -259,19 +259,23 @@ io.on("connection", async (socket) => {
     }
   });
 
-  // L'utilisateur rejoint toutes les rooms (groupes) dont il est membre
-  const userRooms = await prisma.roomMember.findMany({
+  // --- CORRECTION MAJEURE ICI ---
+  // Auparavant, le serveur forçait le socket à rejoindre TOUTES les rooms de l'utilisateur.
+  // C'est ce qui causait la réception des "receive_message" pour toutes les conversations.
+  // Nous commentons/supprimons ce bloc pour que le client gère lui-même ses abonnements via "join_room".
+  
+  /* const userRooms = await prisma.roomMember.findMany({
     where: { userId: userId },
     select: { roomId: true },
   });
   userRooms.forEach((room) => socket.join(room.roomId));
-
   console.log(`${displayName} a rejoint ses ${userRooms.length} salons.`);
+  */
 
-  // ÉVÉNEMENT POUR REJOINDRE UNE ROOM SÉCURISÉE
+  // ÉVÉNEMENT POUR REJOINDRE UNE ROOM SÉCURISÉE (Active Chat)
   socket.on("join_room", async (roomId: string) => {
     const userId = socket.data.user.id;
-    console.log(userId);
+    // console.log(userId);
 
     console.log(
       chalk.yellow(
@@ -290,7 +294,6 @@ io.on("connection", async (socket) => {
           roomId
         )
       );
-
       return;
     }
 
@@ -309,6 +312,13 @@ io.on("connection", async (socket) => {
         )
       );
     }
+  });
+
+  // --- NOUVEL ÉVÉNEMENT : LEAVE_ROOM ---
+  // Essentiel pour arrêter d'écouter une room quand on change de page/conversation
+  socket.on("leave_room", (roomId: string) => {
+    socket.leave(roomId);
+    console.log(chalk.gray(`${displayName} a quitté le salon (socket): ${roomId}`));
   });
 
   // --- GESTION DU TYPING (SAISIE) ---
@@ -484,7 +494,6 @@ io.on("connection", async (socket) => {
                 ),
               ]);
               
-              console.log([roomsForSender, roomsForRecipient]);
               // Envoyer la mise à jour à l'auteur de la réaction
               io.to(userId).emit("rooms_list_data", roomsForSender);
 

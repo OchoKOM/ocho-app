@@ -76,6 +76,14 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
     { id: string; displayName: string; avatarUrl: string }[]
   >([]);
 
+  // --- NOUVEAU : RESET DES ÉTATS AU CHANGEMENT DE ROOM ---
+  // Essentiel pour ne pas mélanger les messages de l'ancienne room avec la nouvelle
+  useEffect(() => {
+    setNewMessages([]);
+    setSentMessages([]);
+    setTypingUsers([]);
+  }, [roomId]);
+
   // --- GESTION DU SOCKET : JOIN / LEAVE / EVENTS ---
   useEffect(() => {
     if (!socket || !isConnected || !roomId) return;
@@ -88,17 +96,13 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
     };
 
     // 2. Écouter la confirmation de réception (Broadcast du serveur)
-    // Cela nous permet de supprimer le message temporaire "Envoi..." car le vrai message va apparaître
     const handleReceiveMessage = (data: {
       newMessage: MessageData;
       roomId: string;
     }) => {
-      console.log(newMessages);
-      
-      if (
-        data.roomId === roomId
-      ) {
-        // On supprime le message temporaire correspondant
+      // Sécurité supplémentaire : on vérifie que le message concerne bien la room active
+      if (data.roomId === roomId) {
+        // On supprime le message temporaire correspondant s'il existe (pour éviter les doublons visuels)
         setNewMessages((prev) => [
           ...prev.filter((msg) => msg.id !== data.newMessage.id),
           data.newMessage,
@@ -111,7 +115,6 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
       typingUsers: { id: string; displayName: string; avatarUrl: string }[];
     }) => {
       if (data.roomId === roomId) {
-        console.log(data.typingUsers)
         setTypingUsers(data.typingUsers.filter((u) => u.id !== loggedUser?.id));
       }
     };
@@ -124,7 +127,6 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
       setNewMessages((prev) => prev.filter((msg) => msg.id !== data.messageId));
 
       // 2. Mettre à jour le cache React Query (Infinite Query)
-      // C'est un peu technique : il faut parcourir toutes les pages et filtrer le message
       queryClient.setQueryData<MessagesSection>(
         ["room", "messages", roomId],
         (oldData: any) => {
@@ -138,9 +140,6 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
           };
         }
       );
-
-      // Si le message supprimé était le dernier affiché, on peut vouloir invalider les rooms
-      // Mais le serveur envoie déjà "rooms_list_data", donc la sidebar devrait se mettre à jour seule.
     };
 
     socket.on("typing_update", handleTypingUpdate);
@@ -148,7 +147,6 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
     // 3. Gestion des erreurs d'envoi
     const handleError = (error: { message: string }) => {
       toast({ variant: "destructive", description: error.message });
-      // On pourrait marquer le message comme "échoué" ici
       setSentMessages((prev) =>
         prev.map((msg) => ({ ...msg, status: "error" })),
       );
@@ -156,19 +154,23 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
 
     socket.on("room_error", handleJoinError);
     socket.on("receive_message", handleReceiveMessage);
-    socket.on("message_deleted", handleMessageDeleted); // Listener ajouté
+    socket.on("message_deleted", handleMessageDeleted);
     socket.on("error", handleError);
 
+    // CLEANUP : C'est ici que la magie opère quand on change de room ou qu'on quitte
     return () => {
       socket.off("room_error", handleJoinError);
       socket.off("receive_message", handleReceiveMessage);
-      socket.off("message_deleted", handleMessageDeleted); // Clean up
+      socket.off("message_deleted", handleMessageDeleted);
       socket.off("error", handleError);
-      socket.emit("leave_room", roomId);
       socket.off("typing_update", handleTypingUpdate);
-      setTypingUsers([]); // Reset la liste
+      
+      // IMPORTANT : Dire au serveur qu'on quitte ce canal
+      socket.emit("leave_room", roomId);
+      
+      setTypingUsers([]); // Reset la liste visuelle
     };
-  }, [socket, isConnected, roomId, loggedUser?.id, queryClient]); // Ajout de queryClient aux dépendances
+  }, [socket, isConnected, roomId, loggedUser?.id, queryClient]);
 
   // --- GESTION NAVIGATION & UI ---
   useEffect(() => {
@@ -267,16 +269,14 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
     ? room.members.find((user) => user?.userId !== loggedMember?.userId)
         ?.user || null
     : null;
+    
   const handleTypingStart = () => {
     if (!socket || !roomId) return;
-
-    // Émettre typing_start immédiatement
     socket.emit("typing_start", roomId);
   };
+  
   const handleTypingStop = () => {
     if (!socket || !roomId) return;
-
-    // Émettre typing_stop immédiatement
     socket.emit("typing_stop", roomId);
   };
 
@@ -296,10 +296,9 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
       status: "sending",
     };
 
-    // Mise à jour optimiste de l'UI
+    // Mise à jour optimiste de l'UI (React Query)
     queryClient.setQueryData(["room", "messages", roomId], (old: any) => {
-      console.log(old);
-      
+      if (!old) return old;
       return({
       ...old,
       pages: old.pages.map((page: any, index: number) =>
@@ -393,6 +392,8 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
             <>
               {/* Indicateur de frappe  */}
               <TypingIndicator typingUsers={typingUsers} />
+              
+              {/* Messages "live" reçus via socket avant refresh */}
               {newMessages.map((msg, i) => {
                 const showTime =
                   i === newMessages.length - 1 || (i % 20 === 0 && i !== 0);
@@ -406,6 +407,8 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
                   />
                 );
               })}
+              
+              {/* Messages en cours d'envoi (échecs ou loading) */}
               {sentMessages.map((msg) => (
                 <SendingMessage
                   key={msg.tempId}
