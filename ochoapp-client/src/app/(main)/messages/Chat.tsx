@@ -116,7 +116,7 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
       }
     };
 
-    // --- GESTION DE LA SUPPRESSION (Nouveau) ---
+    // --- GESTION DE LA SUPPRESSION ---
     const handleMessageDeleted = (data: { messageId: string, roomId: string }) => {
       if (data.roomId !== roomId) return;
 

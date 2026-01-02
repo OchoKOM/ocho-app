@@ -98,13 +98,21 @@ export async function getFormattedRooms(
     .filter((r): r is RoomData => r !== null);
 
   if (!cursor) {
-    const selfMessage = await prisma.message.findFirst({
+    const savedMessage = await prisma.message.findFirst({
       where: { senderId: userId, type: "SAVED" },
       include: getMessageDataInclude(userId),
       orderBy: { createdAt: "desc" },
     });
+    
+    // Logique mise à jour: si le contenu est "created", on met le type CREATE, sinon CONTENT.
+    let type = "CONTENT";
+    if (savedMessage?.content === "create-" + userId) {
+      type = "SAVED";
+    }
 
-    if (selfMessage) {
+    const selfMessage = {...savedMessage, type}
+
+    if (savedMessage) {
       const selfRoom: RoomData = {
         id: `saved-${userId}`,
         name: null,
@@ -112,7 +120,7 @@ export async function getFormattedRooms(
         groupAvatarUrl: null,
         privilege: "MANAGE",
         isGroup: false,
-        createdAt: selfMessage.createdAt,
+        createdAt: savedMessage.createdAt,
         maxMembers: 1,
         members: [
           {
@@ -123,6 +131,7 @@ export async function getFormattedRooms(
             leftAt: null,
           },
         ],
+        // Ajout explicite du lastMessage comme demandé (correction du problème "pas de lastmessage")
         messages: [selfMessage as MessageData],
       };
       rooms.unshift(selfRoom);

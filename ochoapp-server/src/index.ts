@@ -625,7 +625,6 @@ io.on("connection", async (socket) => {
   socket.on(
     "delete_message",
     async ({ messageId, roomId }: { messageId: string; roomId: string }) => {
-      const userId = socket.data.user.id;
       console.log(
         chalk.red(`Tentative de suppression: msg ${messageId} par ${userId}`)
       );
@@ -645,6 +644,23 @@ io.on("connection", async (socket) => {
           return socket.emit("error", {
             message: "Vous n'avez pas l'autorisation",
           });
+        }
+
+        if (roomId === "saved-" + userId) {
+          // Suppression de message enregistré
+          await prisma.message.delete({
+            where: { id: messageId },
+          });
+          
+          // EMISSION CORRECTE : Utiliser io.to(roomId) et non socket.emit
+          io.to(roomId).emit("message_deleted", { messageId, roomId });
+
+          // Rafraîchir la liste des rooms (sidebar)
+          const updatedRooms = await getFormattedRooms(userId, username);
+          // EMISSION CORRECTE : Utiliser io.to(userId)
+          io.to(userId).emit("rooms_list_data", updatedRooms);
+
+          return;
         }
 
         // TRANSACTION DE SUPPRESSION ET MISE A JOUR
@@ -735,6 +751,7 @@ io.on("connection", async (socket) => {
       recipientId: string | undefined;
     }) => {
       const userId = socket.data.user.id;
+      const username = socket.data.user.username; // Capture username
       const { content, roomId, type, recipientId } = data;
 
       console.log(chalk.blue("Envoi du message:", content));
@@ -745,7 +762,7 @@ io.on("connection", async (socket) => {
 
         if (isSavedMessage) {
           // 1. Logique Messages Sauvegardés
-          newMessage = await prisma.message.create({
+          const savedMsg = await prisma.message.create({
             data: {
               content,
               senderId: userId,
@@ -753,11 +770,23 @@ io.on("connection", async (socket) => {
             },
             include: getMessageDataInclude(userId),
           });
-          // On envoie uniquement à l'utilisateur lui-même
-          socket.emit("receive_message", { newMessage, roomId });
-          // Rafraîchir la liste pour soi-même (le message SAVED peut changer l'ordre)
+          
+          // Logique stricte de Type : 
+          // Si content est EXACTEMENT "created", type = CREATE
+          // Sinon, type = CONTENT (ce qui corrige le bug "toujours created")
+          let emissionType = "CONTENT";
+          if (content === "create-" + userId) {
+            emissionType = "SAVED";
+          }
+          const newMessage = { ...savedMsg, type: emissionType };
+          
+          // EMISSION CORRECTE : Utiliser io.to(roomId) pour que tous les onglets reçoivent
+          io.to(roomId).emit("receive_message", { newMessage, roomId });
+          
+          // Rafraîchir la liste pour soi-même
           const updatedRooms = await getFormattedRooms(userId, username);
-          socket.emit("rooms_list_data", updatedRooms);
+          // EMISSION CORRECTE : Utiliser io.to(userId)
+          io.to(userId).emit("rooms_list_data", updatedRooms);
         } else {
           // 2. Vérification de sécurité (doublon du join_room pour l'envoi)
           const membership = await prisma.roomMember.findUnique({
@@ -866,7 +895,7 @@ io.on("connection", async (socket) => {
     isOnline: true,
   });
 
-  console.log(chalk.green(`${socket.data.user.username} est en ligne.`));
+  console.log(chalk.green(`${displayName} est en ligne.`));
 
   socket.on("disconnect", async () => {
     const lastSeen = new Date();
@@ -881,7 +910,7 @@ io.on("connection", async (socket) => {
       lastSeen: lastSeen,
     });
 
-    console.log(chalk.yellow(`${socket.data.user.username} s'est déconnecté.`));
+    console.log(chalk.yellow(`${displayName} s'est déconnecté.`));
   });
 });
 

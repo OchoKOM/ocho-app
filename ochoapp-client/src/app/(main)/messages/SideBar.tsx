@@ -104,14 +104,12 @@ export default function SideBar({
 
     // Listener: Mise à jour temps réel (Nouveau message, nouvelle room créée ailleurs, etc.)
     const handleRoomUpdate = (updatedRoom: RoomData) => {
-      console.log(updatedRoom);
-      
       
       setRooms((prev) => {
         // On retire l'ancienne version de la room (si elle existe)
         const otherRooms = prev.filter((r) => r.id !== updatedRoom.id);
         // On place la room mise à jour tout en haut
-        return [updatedRoom, ...otherRooms];
+        return [...otherRooms, updatedRoom];
       });
     };
 
