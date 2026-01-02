@@ -13,11 +13,13 @@ import { useSession } from "@/app/(main)/SessionProvider";
 import { toast } from "../ui/use-toast"; 
 import { Loader2, Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
 
 // Définition des types pour le contexte
 interface SocketContextType {
   socket: Socket | null;
   isConnected: boolean;
+  isConnecting: boolean;
   onlineStatus: Record<string, { isOnline: boolean; lastSeen?: Date }>;
   checkUserStatus: (userId: string) => void;
 }
@@ -25,6 +27,7 @@ interface SocketContextType {
 const SocketContext = createContext<SocketContextType>({
   socket: null,
   isConnected: false,
+  isConnecting: false,
   onlineStatus: {},
   checkUserStatus: () => {},
 });
@@ -89,14 +92,6 @@ export default function SocketProvider({
       return;
     }
 
-    // 2. Si un socket existe déjà avec le MÊME token, on ne fait rien.
-    // Si le token a changé, le useEffect se relance, donc on passe à la suite pour recréer.
-    if (socketRef.current) {
-       // On vérifie si le socket est déjà connecté ou en cours de connexion
-       // On pourrait potentiellement mettre à jour l'auth ici, mais il est plus sûr de recréer pour React.
-       // Pour cet exemple, on suppose que si le token change, le nettoyage du tour précédent a déjà tué l'ancien socket.
-    }
-
     // Drapeau pour empêcher les actions "zombies" lors du démontage
     let isComponentUnmounted = false;
 
@@ -111,11 +106,11 @@ export default function SocketProvider({
         auth: { token: token },
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: 10,
+        reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         transports: ["websocket", "polling"], 
         closeOnBeforeunload: true,
-        // forceNew: true, // Parfois utile pour forcer une nouvelle instance, mais io() le fait généralement déjà
+        timeout: 5000,
       }
     );
 
@@ -148,27 +143,19 @@ export default function SocketProvider({
          setShowStatus(true);
          setIsConnecting(true);
       }
+    };
 
-      // CORRECTION MAJEURE ICI :
-      // Si "io server disconnect", on ne reconnecte MANUELLEMENT que si le composant est toujours monté
-      // et on évite de le faire si le token risque d'être invalide.
-      if (isServerDisconnect) {
-        // Au lieu de reconnecter aveuglément, on vérifie si le token est toujours là.
-        // Souvent, une déconnexion serveur signifie que le token est expiré.
-        // Si le token est valide, on tente la reconnexion.
-        if (token) {
-            console.log("⚠️ Tentative de reconnexion manuelle suite à déconnexion serveur...");
-            socketInstance.connect();
-        }
+    let errors = 0;
+
+    const onConnectError = () => {
+      errors++;
+      if (errors >= 5) {
+        socketInstance.disconnect();
+        setIsConnecting(false);
+        setShowStatus(true);
       }
     };
 
-    const onConnectError = (err: Error) => {
-      if (isComponentUnmounted) return;
-      console.warn("⚠️ WS Erreur connexion:", err.message);
-      setIsConnected(false);
-      // On laisse le loader actif car socket.io va réessayer (reconnection: true)
-    };
 
     // Événements Métiers
     const onUserStatusChange = (data: { userId: string; isOnline: boolean; lastSeen?: string }) => {
@@ -239,20 +226,21 @@ export default function SocketProvider({
       }
     };
   }, [user, token]); 
-  // Dépendances : Si user ou token change, on détruit tout et on recommence proprement.
+  
 
   return (
     <SocketContext.Provider
       value={{
         socket: socketRef.current,
         isConnected,
+        isConnecting,
         onlineStatus,
         checkUserStatus,
       }}
     >
       <div
         className={cn(
-          "fixed bottom-4 right-4 z-50 transform transition-all duration-500 ease-in-out pointer-events-none",
+          "fixed bottom-4 max-sm:bottom-20 right-4 z-50 transform transition-all duration-500 ease-in-out pointer-events-none",
           showStatus
             ? "translate-y-0 opacity-100"
             : "translate-y-10 opacity-0"

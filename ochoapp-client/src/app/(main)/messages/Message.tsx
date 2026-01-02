@@ -63,6 +63,9 @@ export function DeletionPlaceholder({
     return () => clearInterval(timer);
   }, [duration]);
 
+  if (progress === 0) {
+    return null;
+  }
   // Calcul du décalage pour l'animation du cercle
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
@@ -332,7 +335,7 @@ export default function Message({
 
   // --- READ STATUS (VUES) ---
   const queryKey: QueryKey = ["message", "views", message.id];
-  
+
   // 1. Fetch initial via HTTP (comme avant)
   const { data } = useQuery({
     queryKey,
@@ -354,7 +357,7 @@ export default function Message({
     // A. Si je ne suis pas l'envoyeur, je marque le message comme lu
     // On vérifie aussi si on ne l'a pas déjà lu pour éviter trop d'emits
     const isSender = message.senderId === loggedUser.id;
-    const hasRead = reads.some(r => r.id === loggedUser.id);
+    const hasRead = reads.some((r) => r.id === loggedUser.id);
 
     if (!isSender && !hasRead) {
       // On émet l'événement vers le serveur
@@ -374,7 +377,16 @@ export default function Message({
     return () => {
       socket.off("message_read_update", handleReadUpdate);
     };
-  }, [socket, messageId, roomId, loggedUser, message.senderId, reads, queryClient, queryKey]);
+  }, [
+    socket,
+    messageId,
+    roomId,
+    loggedUser,
+    message.senderId,
+    reads,
+    queryClient,
+    queryKey,
+  ]);
 
   const showDetail = isChecked || showTime;
 

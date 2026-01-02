@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "../SessionProvider";
 import ChatList from "./SideBar";
 import { RoomData } from "@/lib/types";
@@ -12,17 +12,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import AppLogo from "@/components/AppLogo";
 import { t } from "@/context/LanguageContext";
 import { useProgress } from "@/context/ProgressContext";
+import { useSocket } from "@/components/providers/SocketProvider";
 
 export default function Messages() {
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(
-    null,
-  );
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [newChat, setNewChat] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<RoomData>();
   const { user } = useSession();
   const { activeRoomId, setActiveRoomId } = useActiveRoom();
   const queryClient = useQueryClient();
   const { startNavigation: navigate } = useProgress();
+  const { socket, isConnected, isConnecting } = useSocket();
   const { messagesOnApp, selectChatToStart } = t();
 
   if (!user) {
@@ -37,6 +37,30 @@ export default function Messages() {
   const closeNewChat = () => {
     setNewChat(false);
   };
+
+  if (!isConnected && !isConnecting) {
+    return (
+      <div
+        className={cn(
+          "flex h-full rounded-2xl bg-card shadow-sm transition-all max-sm:relative max-sm:h-full max-sm:w-screen max-sm:bg-transparent",
+        )}
+      >
+        <div className="flex h-full select-none flex-col items-center justify-center px-8 text-center">
+          <div className="text-muted-foreground/50">
+            <AppLogo
+              logo="LOGO"
+              size={150}
+              className="text-muted-foreground/50"
+            />
+          </div>
+          <h2 className="text-xl">{messagesOnApp}</h2>
+          <p className="text-muted-foreground">
+            Le serveur de messages est hors ligne veuillez recharger la page
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -59,7 +83,9 @@ export default function Messages() {
         />
       </div>
       <div
-        className={"relative flex h-full w-screen flex-col max-sm:min-w-[100vw] sm:w-3/4"}
+        className={
+          "relative flex h-full w-screen flex-col max-sm:min-w-[100vw] sm:w-3/4"
+        }
       >
         {!activeRoomId && (
           <div className="flex h-full select-none flex-col items-center justify-center px-4 text-center">
@@ -86,7 +112,7 @@ export default function Messages() {
         />
         <NewChat
           onClose={closeNewChat}
-          onChatStart={(id)=>{
+          onChatStart={(id) => {
             if (activeRoomId !== id) {
               setSelectedRoomId(null);
               setSelectedRoom(undefined);

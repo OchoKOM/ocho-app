@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { SKIN_TONES, QUICK_REACTIONS, EMOJI_CATEGORIES } from "../lists/emoji-lists";
 import { MessageBubbleContent } from "../Message";
 import UserAvatar from "@/components/UserAvatar";
+import { useSession } from "../../SessionProvider";
 
 export interface ReactionData {
   content: string;
@@ -289,31 +290,32 @@ export function ReactionList ({
   onReact: (emoji: string) => void,
   onShowDetails: (event: React.MouseEvent) => void
 }){
+  const {user: {id: currentUserId}} = useSession()
   if (!reactions || reactions.length === 0) return null;
 
+  
   return (
     <div className="flex flex-wrap gap-1 mt-1 z-10">
-      {reactions.map((reaction, index) => (
+      {reactions.map((reaction, index) => {
+        const hasReacted = reaction.users.some(user => user.id === currentUserId);
+        return(
         <button
           key={`${reaction.content}-${index}`}
           onClick={(e) => {
             e.stopPropagation();
-            // Comportement: Click simple = Toggle (Add/Remove) si c'est ma réaction
-            // MAIS l'utilisateur veut aussi voir la liste.
-            // Compromis: Click = Ouvrir details. L'action rapide se fait via le menu contextuel/overlay
             onShowDetails(e);
           }}
           className={cn(
             "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-all hover:scale-105 active:scale-95",
-            reaction.hasReacted 
+            hasReacted 
               ? "bg-primary/20 border-primary/50 text-primary shadow-sm" 
               : "bg-muted/50 border-transparent hover:bg-muted text-muted-foreground"
           )}
         >
           <span className="font-emoji">{reaction.content}</span>
-          <span className="text-[10px] font-bold">{reaction.count}</span>
+          <span className="text-xs font-bold">{reaction.count}</span>
         </button>
-      ))}
+      )})}
     </div>
   );
 };
@@ -358,7 +360,7 @@ export function ReactionDetailsPopover({
                   : "hover:bg-background/50 text-muted-foreground"
               )}
             >
-              <span>{r.content}</span>
+              <span className="font-emoji">{r.content}</span>
               <span className="text-xs opacity-70">{r.count}</span>
             </button>
           ))}

@@ -39,7 +39,9 @@ export default function SideBar({
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const [status, setStatus] = useState<"pending" | "success" | "error">("pending");
+  const [status, setStatus] = useState<"pending" | "success" | "error">(
+    "pending",
+  );
 
   // On utilise une ref pour éviter les fermetures (closures) obsolètes dans les listeners socket
   const roomsRef = useRef<RoomData[]>([]);
@@ -52,41 +54,53 @@ export default function SideBar({
   // --- LOGIQUE WEBSOCKET ---
 
   // 1. Fonction pour demander des rooms au serveur
-  const fetchRooms = useCallback((nextCursor: string | null = null) => {
-    if (!socket || !isConnected) return;
+  const fetchRooms = useCallback(
+    (nextCursor: string | null = null) => {
+      if (!socket || !isConnected) return;
 
-    if (nextCursor) setIsFetchingMore(true);
-    else setIsLoading(true);
+      if (nextCursor) setIsFetchingMore(true);
+      else setIsLoading(true);
 
-    // Émission de l'événement au serveur
-    socket.emit("get_rooms", {
-      cursor: nextCursor,
-      limit: 15 // Taille de la page
-    });
-  }, [socket, isConnected]);
+      // Émission de l'événement au serveur
+      socket.emit("get_rooms", {
+        cursor: nextCursor,
+        limit: 15, // Taille de la page
+      });
+      return () => {
+        for (const roomId of roomsRef.current.map((r) => r.id)){
+          socket.emit("leave_room", roomId);
+        }
+      };
+    },
+    [socket, isConnected],
+  );
 
   // 2. Initialisation et écouteurs d'événements
   useEffect(() => {
     if (!socket || !isConnected) return;
 
     // Listener: Réception de la liste paginée
-    const handleRoomsResponse = (response: { rooms: RoomData[], nextCursor: string | null }) => {
-      
+    const handleRoomsResponse = (response: {
+      rooms: RoomData[];
+      nextCursor: string | null;
+    }) => {
       setRooms((prev) => {
-        // STRATÉGIE : Si le premier élément de la réponse est déjà présent 
+        // STRATÉGIE : Si le premier élément de la réponse est déjà présent
         // ou si nous savons que nous sommes sur une page suivante via une ref
 
         // On utilise une approche basée sur l'unicité des IDs
-        const existingIds = new Set(prev.map(r => r.id));
-        const newRooms = response.rooms.filter(r => !existingIds.has(r.id));
+        const existingIds = new Set(prev.map((r) => r.id));
+        const newRooms = response.rooms.filter((r) => !existingIds.has(r.id));
 
         // Si la liste actuelle est vide, c'est une initialisation
         if (prev.length === 0) return response.rooms;
 
         // Sinon, on ajoute à la suite (Pagination)
-        // Note : On peut aussi vérifier si response.rooms contient la room "saved-" 
+        // Note : On peut aussi vérifier si response.rooms contient la room "saved-"
         // pour savoir si c'est la page 1 (car elle est injectée par le serveur sur cursor: null)
-        const isFirstPage = response.rooms.some(r => r.id.startsWith('saved-'));
+        const isFirstPage = response.rooms.some((r) =>
+          r.id.startsWith("saved-"),
+        );
 
         if (isFirstPage) {
           return response.rooms; // Refresh complet de la page 1
@@ -104,7 +118,6 @@ export default function SideBar({
 
     // Listener: Mise à jour temps réel (Nouveau message, nouvelle room créée ailleurs, etc.)
     const handleRoomUpdate = (updatedRoom: RoomData) => {
-      
       setRooms((prev) => {
         // On retire l'ancienne version de la room (si elle existe)
         const otherRooms = prev.filter((r) => r.id !== updatedRoom.id);
@@ -138,14 +151,14 @@ export default function SideBar({
 
   // --- GESTION DE LA SÉLECTION INITIALE ---
   useEffect(() => {
-    if (status === "success" && activeRoomId && rooms.length > 0) {
-      const room = rooms.find((r) => r.id === activeRoomId);
-      if (room) {
-        // Mise à jour silencieuse pour ne pas re-déclencher de navigation inutile
-        // Si besoin de logique spécifique ici
+    if (status === "success" && rooms.length) {
+      if (socket && rooms.length) {
+        for (const roomId of roomsRef.current.map((r) => r.id)){
+          socket.emit("join_room", roomId);
+        }
       }
     }
-  }, [rooms, status, activeRoomId]);
+  }, [rooms, status]);
 
   function handleRoomSelect(room: RoomData) {
     onCloseChat();
@@ -157,7 +170,7 @@ export default function SideBar({
   // Redirection si liste vide chargée
   if (status === "success" && !rooms.length) {
     // Attention: ceci peut causer des boucles si mal géré, vérifier pathname
-    // onCloseChat(); 
+    // onCloseChat();
   }
 
   if (status === "success" && !activeRoomId && pathname === "/messages/chat") {
@@ -235,7 +248,7 @@ export default function SideBar({
       </InfiniteScrollContainer>
 
       <div
-        className="fixed bottom-20 right-5 aspect-square h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary-foreground hover:text-primary flex sm:absolute sm:bottom-5"
+        className="fixed bottom-20 right-5 flex aspect-square h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary-foreground hover:text-primary sm:absolute sm:bottom-5"
         onClick={onNewChat}
         title={startNewChat}
       >

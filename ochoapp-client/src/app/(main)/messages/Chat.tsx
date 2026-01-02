@@ -165,9 +165,6 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
       socket.off("error", handleError);
       socket.off("typing_update", handleTypingUpdate);
       
-      // IMPORTANT : Dire au serveur qu'on quitte ce canal
-      socket.emit("leave_room", roomId);
-      
       setTypingUsers([]); // Reset la liste visuelle
     };
   }, [socket, isConnected, roomId, loggedUser?.id, queryClient]);
