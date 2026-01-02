@@ -1,6 +1,6 @@
 import { MessageData } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Plus, Search, X, Reply, Copy, Forward, Trash2, UserMinus, HeartOff } from "lucide-react";
+import { Plus, Search, X, Reply, Copy, Forward, Trash2, HeartOff, Layers, Heart } from "lucide-react";
 import { useState, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { SKIN_TONES, QUICK_REACTIONS, EMOJI_CATEGORIES } from "../lists/emoji-lists";
@@ -19,7 +19,6 @@ export interface ReactionData {
     username: string;
   }[];
 }
-
 
 const applySkinTone = (
   emojiChar: string,
@@ -54,7 +53,6 @@ export default function ReactionOverlay({
   const [currentSkinTone, setCurrentSkinTone] = useState(SKIN_TONES[0]);
   const [mounted, setMounted] = useState(false);
 
-  // Check if user has already reacted with a specific emoji to handle toggle
   const hasReactedWith = (emoji: string) => {
       return currentReactions.some(r => r.content === emoji && r.hasReacted);
   }
@@ -280,7 +278,6 @@ export default function ReactionOverlay({
   return createPortal(overlayContent, document.body);
 };
 
-// --- COMPOSANT LISTE DE REACTION ---
 export function ReactionList ({ 
   reactions, 
   onReact,
@@ -288,22 +285,26 @@ export function ReactionList ({
 }: { 
   reactions: ReactionData[], 
   onReact: (emoji: string) => void,
-  onShowDetails: (event: React.MouseEvent) => void
+  onShowDetails: (event: React.MouseEvent, reactionContent?: string) => void
 }){
   const {user: {id: currentUserId}} = useSession()
   if (!reactions || reactions.length === 0) return null;
 
-  
+  const sortedReactions = [...reactions].sort((a, b) => b.count - a.count);
+  const showOverflow = sortedReactions.length > 3;
+  const visibleReactions = showOverflow ? sortedReactions.slice(0, 2) : sortedReactions;
+  const overflowCount = sortedReactions.length - 2;
+
   return (
     <div className="flex flex-wrap gap-1 mt-1 z-10">
-      {reactions.map((reaction, index) => {
+      {visibleReactions.map((reaction, index) => {
         const hasReacted = reaction.users.some(user => user.id === currentUserId);
         return(
         <button
           key={`${reaction.content}-${index}`}
           onClick={(e) => {
             e.stopPropagation();
-            onShowDetails(e);
+            onShowDetails(e, reaction.content);
           }}
           className={cn(
             "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-all hover:scale-105 active:scale-95",
@@ -316,45 +317,78 @@ export function ReactionList ({
           <span className="text-xs font-bold">{reaction.count}</span>
         </button>
       )})}
+
+      {showOverflow && (
+        <button
+           onClick={(e) => {
+             e.stopPropagation();
+             onShowDetails(e, "OVERFLOW");
+           }}
+           className="flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold border border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:scale-105 active:scale-95 transition-all"
+        >
+          <Heart size={12} />
+          {overflowCount}+
+        </button>
+      )}
     </div>
   );
 };
 
-// --- SOUS-COMPOSANT : DETAILS REACTION (POPOVER) ---
 export function ReactionDetailsPopover({
   reactions,
   currentUserId,
   onClose,
   onRemoveReaction,
   anchorRect,
+  initialTab
 }: {
   reactions: ReactionData[];
   currentUserId: string;
   onClose: () => void;
   onRemoveReaction: () => void;
   anchorRect: DOMRect;
+  initialTab?: string | null;
 }) {
-  const [activeTab, setActiveTab] = useState<string>(reactions[0]?.content || "");
-  const activeReaction = reactions.find(r => r.content === activeTab);
+  const sortedReactions = [...reactions].sort((a, b) => b.count - a.count);
+  
+  // Logique pour les 5 onglets : 4 normaux + 1 "Reste"
+  const topReactions = sortedReactions.slice(0, 3);
+  const remainingReactions = sortedReactions.slice(3);
+  const hasRemaining = remainingReactions.length > 0;
+
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (initialTab === "OVERFLOW" && hasRemaining) return "OVERFLOW";
+    if (initialTab && sortedReactions.some(r => r.content === initialTab)) return initialTab;
+    return sortedReactions[0]?.content || "";
+  });
+  
+  // Déterminer les utilisateurs à afficher selon l'onglet
+  let displayUsers: ReactionData['users'] = [];
+  if (activeTab === "OVERFLOW") {
+    // On combine tous les utilisateurs des réactions restantes
+    displayUsers = remainingReactions.flatMap(r => r.users.map(u => ({...u, reactionEmoji: r.content})));
+  } else {
+    displayUsers = reactions.find(r => r.content === activeTab)?.users || [];
+  }
 
   return createPortal(
     <>
       <div className="fixed inset-0 z-50 bg-transparent" onClick={onClose} />
       <div
-        className="fixed z-50 flex w-72 flex-col overflow-hidden rounded-2xl border border-border bg-popover shadow-xl animate-in fade-in zoom-in-95 duration-200"
+        className="fixed z-50 flex w-80 flex-col overflow-hidden rounded-2xl border border-border bg-popover shadow-xl animate-in fade-in zoom-in-95 duration-200"
         style={{
           top: anchorRect.bottom + 8,
-          left: Math.min(anchorRect.left, window.innerWidth - 300),
+          left: Math.min(anchorRect.left, window.innerWidth - 320),
         }}
       >
-        {/* Header Tabs */}
+        {/* Header Onglets */}
         <div className="flex items-center gap-1 overflow-x-auto border-b border-border bg-muted/30 p-2 scrollbar-none">
-          {reactions.map((r) => (
+          {topReactions.map((r) => (
             <button
               key={r.content}
               onClick={() => setActiveTab(r.content)}
               className={cn(
-                "flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium transition-colors",
+                "flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium transition-colors flex-shrink-0",
                 activeTab === r.content
                   ? "bg-background shadow-sm text-foreground"
                   : "hover:bg-background/50 text-muted-foreground"
@@ -364,43 +398,71 @@ export function ReactionDetailsPopover({
               <span className="text-xs opacity-70">{r.count}</span>
             </button>
           ))}
+          
+          {hasRemaining && (
+            <button
+              onClick={() => setActiveTab("OVERFLOW")}
+              className={cn(
+                "flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium transition-colors flex-shrink-0",
+                activeTab === "OVERFLOW"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "hover:bg-background/50 text-muted-foreground"
+              )}
+            >
+              <Heart size={12} />
+              <span>{remainingReactions.length}+</span>
+            </button>
+          )}
         </div>
 
-        {/* User List */}
-        <div className="flex max-h-60 flex-col overflow-y-auto p-2">
-          {activeReaction?.users.map((user) => {
-            const isMe = user.id === currentUserId;
-            return (
-              <div key={user.id} className="flex items-center justify-between rounded-lg p-2 hover:bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <UserAvatar
-                    userId={user.id}
-                    avatarUrl={user.avatarUrl}
-                    size={32}
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold">
-                      {isMe ? "Vous" : user.displayName}
-                    </span>
-                    <span className="text-xs text-muted-foreground">@{user.username}</span>
+        {/* Liste des utilisateurs */}
+        <div className="flex max-h-72 flex-col overflow-y-auto p-2 scrollbar-thin">
+          {displayUsers.length > 0 ? (
+            displayUsers.map((user, idx) => {
+              const isMe = user.id === currentUserId;
+              // @ts-ignore (pour l'emoji d'overlay en mode overflow)
+              const reactionEmoji = user.reactionEmoji;
+
+              return (
+                <div key={`${user.id}-${idx}`} className="group flex items-center justify-between rounded-lg p-2 hover:bg-muted/50">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <UserAvatar userId={user.id} avatarUrl={user.avatarUrl} size={36} />
+                        {reactionEmoji && (
+                            <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-background text-[10px] shadow-sm ring-1 ring-border font-emoji">
+                                {reactionEmoji}
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold truncate max-w-[140px]">
+                        {isMe ? "Vous" : user.displayName}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">@{user.username}</span>
+                    </div>
                   </div>
+                  
+                  {isMe && (
+                     <button
+                      onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveReaction();
+                          onClose();
+                      }}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
+                      title="Retirer ma réaction"
+                     >
+                         <HeartOff size={14} />
+                     </button>
+                  )}
                 </div>
-                
-                {isMe && (
-                   <button
-                    onClick={() => {
-                        onRemoveReaction();
-                        onClose();
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                    title="Retirer ma réaction"
-                   >
-                       <HeartOff size={16} />
-                   </button>
-                )}
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+             <div className="p-8 text-center text-sm text-muted-foreground italic">
+               Aucun utilisateur trouvé
+             </div>
+          )}
         </div>
       </div>
     </>,

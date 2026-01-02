@@ -282,7 +282,7 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
     if (!socket || !roomId) return;
     handleTypingStop();
 
-    const tempId = crypto.randomUUID();
+    const tempId = Math.random().toString(36).slice(2);
     const newMessage = {
       id: tempId,
       content: content.trim(),
@@ -773,3 +773,4 @@ export function TypingIndicator({ typingUsers = [] }: TypingIndicatorProps) {
     </div>
   );
 }
+

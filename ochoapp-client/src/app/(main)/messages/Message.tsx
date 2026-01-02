@@ -202,6 +202,7 @@ export default function Message({
   const [activeDetailsRect, setActiveDetailsRect] = useState<DOMRect | null>(
     null,
   );
+  const [selectedReaction, setSelectedReaction] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Refs
@@ -293,10 +294,18 @@ export default function Message({
     socket.emit("remove_reaction", { messageId, roomId });
   };
 
-  const handleShowDetails = (event: React.MouseEvent) => {
+  const handleShowDetails = (
+    event: React.MouseEvent,
+    reactionContent?: string,
+  ) => {
     event.preventDefault();
     event.stopPropagation();
     setActiveDetailsRect(event.currentTarget.getBoundingClientRect());
+    if (reactionContent) {
+      setSelectedReaction(reactionContent);
+    } else {
+      setSelectedReaction(null);
+    }
   };
 
   // --- LOGIQUE SUPPRESSION MESSAGE ---
@@ -552,7 +561,11 @@ export default function Message({
             <ReactionDetailsPopover
               reactions={reactions}
               currentUserId={loggedUser.id}
-              onClose={() => setActiveDetailsRect(null)}
+              initialTab={selectedReaction}
+              onClose={() => {
+                setActiveDetailsRect(null);
+                setSelectedReaction(null);
+              }}
               onRemoveReaction={handleRemoveMyReaction}
               anchorRect={activeDetailsRect}
             />
@@ -623,16 +636,6 @@ export default function Message({
                       !isOwner && "flex-row-reverse",
                     )}
                   >
-                    <div
-                      className={cn(
-                        "flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-muted/50",
-                        isDeleting && "invisible",
-                      )}
-                      onClick={handleContextMenu}
-                    >
-                      <MoreVertical className="size-5 text-muted-foreground" />
-                    </div>
-
                     <div className="relative h-fit w-fit">
                       <div
                         ref={bubbleRef}
