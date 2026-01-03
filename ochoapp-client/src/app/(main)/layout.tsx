@@ -31,8 +31,8 @@ export default async function Layout({
   return (
     <SessionProvider value={sessionValue}>
       {/* Le SocketProvider enveloppe les enfants pour activer le temps réel partout */}
-      <LanguageProvider>
           <ProgressProvider>
+      <LanguageProvider>
         <SocketProvider>
             <NavigationProvider>
               <MenuBarProvider>
@@ -53,8 +53,8 @@ export default async function Layout({
               </MenuBarProvider>
             </NavigationProvider>
         </SocketProvider>
-          </ProgressProvider>
       </LanguageProvider>
+          </ProgressProvider>
     </SessionProvider>
   );
 }
