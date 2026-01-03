@@ -5,7 +5,7 @@ import { useSession } from "../SessionProvider";
 import RoomsLoadingSkeleton from "./skeletons/RoomSkeleton";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useActiveRoom } from "@/context/ChatContext";
-import { Frown, Loader2, MessageSquare, SquarePen } from "lucide-react";
+import { Frown, Loader2, MessageSquare, Search, SquarePen } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { t } from "@/context/LanguageContext";
 import { useProgress } from "@/context/ProgressContext";
@@ -146,10 +146,10 @@ export default function SideBar({
     // Le backend renvoie { rooms: RoomData[], nextCursor: ... }
     const handleRoomListUpdate = (payload: RoomListPayload) => {
       console.log("Socket: room_list_updated", payload);
-      
+
       setRooms((prev) => {
         // Les rooms renvoyées par le backend sont déjà triées (les plus récentes en premier)
-        const newTopRooms = payload.rooms; 
+        const newTopRooms = payload.rooms;
         const newIds = new Set(newTopRooms.map((r) => r.id));
 
         // On garde les anciennes rooms qui ne sont PAS dans la nouvelle mise à jour
@@ -190,20 +190,20 @@ export default function SideBar({
 
     // --- BINDING DES EVENTS ---
     socket.on("rooms_list_data", handleRoomsResponse);
-    
+
     // CAS 1: Liste complète mise à jour (Send/Delete message)
     socket.on("room_list_updated", handleRoomListUpdate);
-    
+
     // CAS 2: Nouvelle room unique (Create chat)
     socket.on("new_room_created", handleSingleRoomUpdate);
     // Ajout de room_ready pour que le créateur voit aussi la room s'ajouter
     socket.on("room_ready", handleSingleRoomUpdate);
-    
+
     socket.on("error_fetching_rooms", handleError);
 
     // Initial fetch
     if (rooms.length === 0 && !isHttpLoading) {
-        fetchRooms(null);
+      fetchRooms(null);
     }
 
     return () => {
@@ -213,20 +213,29 @@ export default function SideBar({
       socket.off("room_ready", handleSingleRoomUpdate);
       socket.off("error_fetching_rooms", handleError);
     };
-  }, [socket, isConnected, queryClient, queryKey, cursor, isHttpLoading, fetchRooms, rooms.length]);
+  }, [
+    socket,
+    isConnected,
+    queryClient,
+    queryKey,
+    cursor,
+    isHttpLoading,
+    fetchRooms,
+    rooms.length,
+  ]);
 
   // --- GESTION DES REJOINTES DE ROOMS ---
   useEffect(() => {
     if (status !== "success" || !socket) return;
 
     // Optimisation: ne rejoindre que les nouvelles rooms
-    const roomsToJoin = rooms.filter(r => !joinedRoomsRef.current.has(r.id));
-    
+    const roomsToJoin = rooms.filter((r) => !joinedRoomsRef.current.has(r.id));
+
     if (roomsToJoin.length > 0) {
-        roomsToJoin.forEach(room => {
-            socket.emit("join_room", room.id);
-            joinedRoomsRef.current.add(room.id);
-        });
+      roomsToJoin.forEach((room) => {
+        socket.emit("join_room", room.id);
+        joinedRoomsRef.current.add(room.id);
+      });
     }
   }, [rooms, status, socket]);
 
@@ -310,12 +319,20 @@ export default function SideBar({
         )}
       </InfiniteScrollContainer>
 
-      <div
-        className="fixed bottom-20 right-5 flex aspect-square h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary-foreground hover:text-primary sm:absolute sm:bottom-5"
-        onClick={onNewChat}
-        title={startNewChat}
-      >
-        <SquarePen />
+      <div className="fixed bottom-20 right-5 flex gap-2 sm:absolute sm:bottom-5">
+        <div
+          className="flex aspect-square h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-muted-foreground/60 text-muted shadow-md hover:bg-muted-foreground hover:shadow-lg hover:shadow-muted-foreground/30 dark:text-muted-foreground dark:bg-muted"
+          // Pour les recherches
+        >
+          <Search />
+        </div>
+        <div
+          className="flex aspect-square h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary-foreground hover:text-primary hover:shadow-lg hover:shadow-primary/30"
+          onClick={onNewChat}
+          title={startNewChat}
+        >
+          <SquarePen />
+        </div>
       </div>
     </div>
   );
