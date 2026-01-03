@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { QueryKey, useQuery, useQueryClient } from "@tanstack/react-query";
 import kyInstance from "@/lib/ky";
 import FormattedInt from "@/components/FormattedInt";
-import { useRouter } from "next/navigation";
 import { t } from "@/context/LanguageContext";
 import Verified from "@/components/Verified";
 import { useProgress } from "@/context/ProgressContext";
@@ -98,9 +97,8 @@ export default function RoomPreview({ room, active, onSelect }: RoomProps) {
     deletedChat,
   } = t();
   const { startNavigation: navigate } = useProgress();
-  const router = useRouter();
 
-  const queryKey: QueryKey = ["unread-chat-messages", room.id];
+  const queryKey: QueryKey = ["room", "unread", room.id];
   const queryClient = useQueryClient();
 
   const { data } = useQuery({
@@ -109,7 +107,6 @@ export default function RoomPreview({ room, active, onSelect }: RoomProps) {
       kyInstance
         .get(`/api/rooms/${room.id}/unread-count`)
         .json<NotificationCountInfo>(),
-    refetchInterval: active ? 2_000 : 50_000,
     initialData: { unreadCount: 0 },
     throwOnError: false,
   });
@@ -229,20 +226,15 @@ export default function RoomPreview({ room, active, onSelect }: RoomProps) {
     BAN: oldMemberMsg,
     REACTION: isSender
       ? recipient?.id === loggedinUser.id
-        ? youReactedToYourMessage
-            .replace("[name]", sender || appUser)
-            .replace("[r]", messagePreview.content)
+        ? youReactedToYourMessage.replace("[name]", sender || appUser)
         : youReactedToMessage
             .replace("[name]", sender || appUser)
-            .replace("[r]", messagePreview.content)
             .replace("[member]", recipientFirstName || appUser)
       : recipient?.id === loggedinUser.id
         ? reactedToMessage
             .replace("[name]", sender || appUser)
-            .replace("[r]", messagePreview.content)
         : reactedMemberMessage
             .replace("[name]", sender || appUser)
-            .replace("[r]", messagePreview.content)
             .replace("[member]", recipientFirstName || appUser),
   };
 
@@ -254,7 +246,6 @@ export default function RoomPreview({ room, active, onSelect }: RoomProps) {
   }
 
   const now = Date.now();
-
 
   const select = async () => {
     onSelect();
@@ -269,13 +260,15 @@ export default function RoomPreview({ room, active, onSelect }: RoomProps) {
     `${otherUser?.displayName || appUser} ${isSaved ? `(${you})` : ""}` ||
     (room.isGroup ? groupChat : appUser);
 
-
   return (
     <li
       key={room.id}
       className={`cursor-pointer p-2 ${active && "bg-accent/50"}`}
       onClick={select}
-      title={messagePreviewContent || noMessage}
+      title={
+        messagePreviewContent?.replace("[r]", messagePreview.content) ||
+        noMessage
+      }
     >
       <div className="flex items-center space-x-2">
         {room.isGroup ? (
@@ -309,7 +302,19 @@ export default function RoomPreview({ room, active, onSelect }: RoomProps) {
             >
               {typing.isTyping
                 ? typingText
-                : messagePreviewContent || noMessage}
+                : (messagePreviewContent &&
+                    (messageType === "REACTION" ? (
+                      <>
+                        {messagePreviewContent.split("[r]")[0]}
+                        <span className="font-emoji">
+                          {messagePreview.content}
+                        </span>
+                        {messagePreviewContent.split("[r]")[1]}
+                      </>
+                    ) : (
+                      messagePreviewContent
+                    ))) ||
+                  noMessage}
             </span>
             {!typing.isTyping && (
               <>

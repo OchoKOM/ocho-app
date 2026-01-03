@@ -967,7 +967,6 @@ io.on("connection", async (socket) => {
 });
 
 const hostname = "0.0.0.0";
-// @ts-expect-error Type 'number' is not assignable to type 'string'.
-server.listen(PORT, hostname, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Serveur de chat prêt à l'adresse http://localhost:${PORT}`);
 });

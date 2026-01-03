@@ -223,7 +223,7 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
       queryFn: ({ pageParam }) =>
         kyInstance
           .get(
-            `/api/rooms/${roomId}/msgs`,
+            `/api/rooms/${roomId}/messages`,
             pageParam ? { searchParams: { cursor: pageParam } } : {},
           )
           .json<MessagesSection>(),

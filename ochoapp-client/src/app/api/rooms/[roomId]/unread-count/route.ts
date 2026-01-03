@@ -24,9 +24,35 @@ export async function GET(
       });
     }
 
+    const roomMember = await prisma.roomMember.findUnique({
+      where: {
+        roomId_userId: {
+          userId: user.id,
+          roomId
+        }
+      }
+    })
+    if(!roomMember){
+      return Response.json({
+        unreadCount: 0
+      });
+    }
+    const joinedAt = roomMember.joinedAt
+    const leftAt = roomMember.leftAt || new Date()
+
     const unreadCount = await prisma.message.count({
       where: {
         AND: [
+          {
+            createdAt: {
+              gte: joinedAt
+            }
+          },
+          {
+            createdAt: {
+              lte: leftAt
+            }
+          },
           {
             roomId: {
               equals: roomId,
