@@ -45,7 +45,7 @@ export default function Messages() {
           "flex h-full rounded-2xl bg-card shadow-sm transition-all max-sm:relative max-sm:h-full max-sm:w-screen max-sm:bg-transparent",
         )}
       >
-        <div className="flex h-full select-none flex-col items-center justify-center px-8 text-center">
+        <div className="flex h-full select-none flex-col items-center justify-center px-8 text-center w-full">
           <div className="text-muted-foreground/50">
             <AppLogo
               logo="LOGO"

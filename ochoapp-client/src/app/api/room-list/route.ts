@@ -33,197 +33,97 @@ export async function GET(req: NextRequest) {
       return Response.json({ error: "Action non autorisée" }, { status: 401 });
     }
 
+    const userId = user.id;
+    const username = user.username;
+    const displayName = user.displayName || username;
+    const avatarUrl = user.avatarUrl;
+
+    // 2. Récupération des conversations standard via LastMessage
     const lastMessages = await prisma.lastMessage.findMany({
-      where: {
-        userId: user.id,
-      },
+      where: { userId },
       select: {
         roomId: true,
         messageId: true,
-        message: {
-          include: getMessageDataInclude(loggedInUser.id),
-        },
-        room: {
-          include: getChatRoomDataInclude(),
-        },
+        message: { include: getMessageDataInclude(userId) },
+        room: { include: getChatRoomDataInclude() },
       },
-      orderBy: {
-        createdAt: "desc"
-      },
-      take: pageSize + 1, // Récupérer une page supplémentaire pour déterminer s'il y a une page suivante
-      cursor: cursor ? { 
-        userId_roomId: { userId: user.id, roomId: cursor }
-      } : undefined,
+      orderBy: { createdAt: "desc" },
+      take: pageSize + 1,
+      cursor: cursor
+        ? { userId_roomId: { userId, roomId: cursor } }
+        : undefined,
     });
-     
 
-    // Récupérer les canaux dans lesquels l'utilisateur est membre avec leur dernier message
-    const rooms = lastMessages.map((lastMessage) => {
-      const lastMsg: MessageData | null = lastMessage.message;
-        const room: RoomData | null = lastMessage.room;
-        if (!room) return {
-          id: "",
-          name: null,
+    const rooms: RoomData[] = lastMessages
+      .map((lm) => {
+        const lastMsg = lm.message as MessageData | null;
+        const roomData = lm.room;
+        if (!roomData) return null;
+        return {
+          ...roomData,
+          messages: lastMsg ? [lastMsg] : [],
+          members: roomData.members || [],
+        } as RoomData;
+      })
+      .filter((r): r is RoomData => r !== null);
+
+    // 3. Injection de la "Self Room" (Messages Enregistrés)
+    if (!cursor) {
+      const savedMessage = await prisma.message.findFirst({
+        where: { senderId: userId, type: "SAVED" },
+        include: getMessageDataInclude(userId),
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (savedMessage) {
+        // Logique visuelle : si le contenu est technique "create-userId", on le garde en SAVED (caché/système)
+        let type = "CONTENT";
+        if (savedMessage.content === "create-" + userId) {
+          type = "SAVED";
+        }
+
+        const selfMessage = { ...savedMessage, type };
+
+        // Création de la room virtuelle en mémoire
+        const selfRoom: RoomData = {
+          id: `saved-${userId}`, // ID Virtuel
+          name: "Messages enregistrés",
           description: null,
           groupAvatarUrl: null,
-          privilege: "DEFAULT",
+          privilege: "MANAGE",
+          isGroup: false,
+          createdAt: savedMessage.createdAt,
+          maxMembers: 1,
           members: [
             {
-            user,
-            userId: user.id,
-            type: "MEMBER",
-            joinedAt: user.createdAt,
-            leftAt: null,
-          },
+              user,
+              userId: user.id,
+              type: "OWNER",
+              joinedAt: user.createdAt,
+              leftAt: null,
+            },
           ],
-          maxMembers: 1,
-          messages: lastMsg ? [lastMsg] : [],
-          isGroup: false,
-          createdAt: new Date(0),
+          messages: [selfMessage as MessageData],
+        };
 
-        } as RoomData;
-
-        return {
-          ...room,
-          messages: lastMsg ? [lastMsg] : [],
-        } as RoomData;
-    })
-    const updatedRooms: RoomData[] = rooms
-
-
-
-    // Récupérer également les messages envoyés à soi-même sans canal
-    const selfMessage: MessageData | null = await prisma.message.findFirst({
-      where: {
-        senderId: user.id,
-        type: "SAVED", // Type de message sauvegardé
-      },
-      include: getMessageDataInclude(loggedInUser.id),
-      orderBy: { createdAt: "desc" },
-    });
-
-    // Ajouter les messages envoyés à soi-même aux canaux
-    if (selfMessage) {
-      if (selfMessage.content !== `create-${user.id}`) {
-        selfMessage.type = "CONTENT";
-      }
-      const selfRoom: RoomData | null = {
-        id: `saved-${user.id}`,
-        name: null,
-        description: null,
-        groupAvatarUrl: null,
-        privilege: "MANAGE",
-        members: [
-          {
-            user,
-            userId: user.id,
-            type: "OWNER",
-            joinedAt: user.createdAt,
-            leftAt: null,
-          },
-        ],
-        maxMembers: 1,
-        messages: [selfMessage],
-        isGroup: false,
-        createdAt: selfMessage.createdAt,
-      };
-      if (selfRoom) {
-        updatedRooms.unshift(selfRoom); // Ajouter ce canal fictif au début de la liste
+        // On l'ajoute au tout début de la liste
+        rooms.unshift(selfRoom);
       }
     }
 
-    const nextCursor =
-      rooms.length > pageSize ? rooms[pageSize].id : null;
+    // 4. Gestion de la pagination
+    let nextCursor: string | null = null;
+    if (rooms.length > pageSize) {
+      const nextItem = rooms.pop();
+      nextCursor = nextItem ? nextItem.id : null;
+    }
 
-    const data: RoomsSection = {
-      rooms: updatedRooms.slice(0, pageSize),
-      nextCursor,
-    };
-
-    return Response.json(data);
+    return Response.json({ rooms, nextCursor });
   } catch (error) {
     console.error(error);
     return Response.json(
       { error: "Erreur interne du serveur" },
       { status: 500 },
-    );
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    // Validation de l'utilisateur connecté
-    const { user } = await validateRequest();
-    if (!user) {
-      return Response.json({ error: "Action non autorisée" }, { status: 401 });
-    }
-
-    // Lecture et parsing du body de la requête
-    const body = await req.json();
-    const parsed = createRoomSchema.parse(body);
-
-    // Assurer que l'utilisateur connecté est dans les membres du canal
-    let members = parsed.members ? [...parsed.members, user.id] : [user.id];
-
-    // Supprimer les doublons dans la liste des membres
-    members = [...new Set(members)];
-
-    // Validation pour les groupes : au moins deux membres (l'utilisateur connecté + 1 autre)
-    if (parsed.isGroup && members.length < 2) {
-      return Response.json(
-        { error: "Un groupe doit avoir au moins deux membres" },
-        { status: 400 },
-      );
-    }
-
-    // Vérifier si une discussion individuelle (non groupe) avec ces deux membres existe déjà
-    if (!parsed.isGroup) {
-      const existingRoom = await prisma.room.findFirst({
-        where: {
-          isGroup: false,
-          AND: [
-            { members: { some: { userId: members[0] } } },
-            { members: { some: { userId: members[1] } } },
-          ],
-        },
-        include: getChatRoomDataInclude(),
-      });
-
-      // Si un canal existe déjà, le renvoyer directement
-      if (existingRoom) {
-        return Response.json(existingRoom);
-      }
-    }
-
-    // Si le canal n'existe pas, le créer
-    const room = await prisma.room.create({
-      data: {
-        name: parsed.name,
-        isGroup: parsed.isGroup,
-        members: {
-          create: members.map((memberId) => ({
-            userId: memberId,
-          })),
-        },
-      },
-      include: getChatRoomDataInclude(), // Inclure les données requises
-    });
-
-    await prisma.message.create({
-      data: {
-        content: "created",
-        roomId: room.id,
-        senderId: room.isGroup ? user.id : null,
-        type: "CREATE",
-      },
-    });
-
-    return Response.json(room);
-  } catch (error) {
-    console.error("Erreur lors de la création de la discussion:", error);
-    return Response.json(
-      { error: "Impossible de créer cette discussion" },
-      { status: 400 },
     );
   }
 }

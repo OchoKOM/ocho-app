@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import jwt from "jsonwebtoken";
+import { Request, Response } from "express";
 import {
   getChatRoomDataInclude,
   getMessageDataInclude,
@@ -7,10 +9,78 @@ import {
   RoomData,
   RoomsSection,
 } from "./types";
+import { DefaultEventsMap, ExtendedError, Socket } from "socket.io";
+import chalk from "chalk";
 
 const prisma = new PrismaClient();
 
-// --- HELPER: FORMATAGE DES RÉACTIONS ---
+const JWT_SECRET =
+  process.env.JWT_SECRET || "super_secret_key_change_me_in_prod";
+const INTERNAL_SECRET = process.env.INTERNAL_SERVER_SECRET || "default_secret";
+
+
+
+export async function validateUserInDb(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+  return !!user;
+}
+export async function validateSession(req: Request<{ userId: string }>, res: Response) {
+  try {
+      const { userId } = req.body;
+      const internalSecret = req.headers["x-internal-secret"];
+  
+      if (internalSecret !== INTERNAL_SECRET) {
+        return res.status(401).json({ error: "Accès refusé" });
+      }
+  
+      const userExists = await validateUserInDb(userId);
+      if (!userExists)
+        return res.status(404).json({ error: "Utilisateur introuvable" });
+  
+      const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
+      res.json({ token });
+    } catch (error) {
+      console.error("Validate Session Error:", error);
+      res.status(500).json({ error: "Impossible de valider la session" });
+    }
+}
+
+export async function socketHandler(socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, any>, next: ((err?: ExtendedError | undefined) => void)) {
+  try {
+    const { token } = socket.handshake.auth;
+    const session = await prisma.session.findUnique({
+      where: {
+        id: token,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+            username: true,
+            avatarUrl: true,
+            isOnline: true,
+            lastSeen: true,
+          },
+        },
+      },
+    });
+
+    if (!session || !session.user) {
+      console.log(chalk.red("Impossible de connecter le client"));
+      return next(new Error("Session introuvable"));
+    }
+
+    socket.data.user = session.user;
+    next();
+  } catch (error) {
+    console.log(chalk.red("Impossible de connecter le client: ", error));
+    next(new Error("Erreur de connexion"));
+  }
+}
 export async function getMessageReactions(
   messageId: string,
   currentUserId: string

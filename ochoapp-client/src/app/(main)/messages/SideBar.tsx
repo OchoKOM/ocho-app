@@ -10,6 +10,8 @@ import { usePathname } from "next/navigation";
 import { t } from "@/context/LanguageContext";
 import { useProgress } from "@/context/ProgressContext";
 import { useSocket } from "@/components/providers/SocketProvider";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import kyInstance from "@/lib/ky";
 
 interface SidebarProps {
   activeRoom: (room: RoomData) => void;
@@ -37,37 +39,63 @@ export default function SideBar({
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [cursor, setCursor] = useState<string | null>(null); // Pour la pagination
   const [hasMore, setHasMore] = useState(true);
+  
+  // Modifié : isLoading commence à true, mais sera contrôlé par HTTP d'abord
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const [status, setStatus] = useState<"pending" | "success" | "error">(
-    "pending",
-  );
+  const [status, setStatus] = useState<"pending" | "success" | "error">("pending");
 
   // On utilise une ref pour éviter les fermetures (closures) obsolètes dans les listeners socket
   const roomsRef = useRef<RoomData[]>([]);
 
-  // Synchroniser la ref avec l'état
+  const userId = loggedinUser.id;
+
+  // --- REQUÊTE HTTP (PRIORITAIRE) ---
+  const { data: httpRooms, isLoading: isHttpLoading, isError: isHttpError } = useQuery({
+    queryKey: ["rooms", "sidebar", userId],
+    queryFn: () => kyInstance.get("/api/room-list").json<RoomData[]>(),
+    staleTime: 1000 * 60 * 1, 
+  });
+
+  useEffect(() => {
+    if (httpRooms) {
+      setRooms((prev) => {
+        // Optimisation : Si on a déjà des rooms (via socket), on ne remplace pas tout brutalement
+        // sauf si c'est le premier chargement.
+        if (prev.length > 0) return prev;
+        return httpRooms;
+      });
+      
+      setStatus("success");
+      setIsLoading(false);
+    } else if (isHttpError) {
+      console.log("");
+    }
+  }, [httpRooms, isHttpError]);
+
+  // Synchroniser la ref avec l'état pour les listeners sockets
   useEffect(() => {
     roomsRef.current = rooms;
   }, [rooms]);
 
-  // --- LOGIQUE WEBSOCKET ---
-
-  // 1. Fonction pour demander des rooms au serveur
+  // 1. Fonction pour demander des rooms au serveur (Socket)
+  // Cette fonction sert désormais principalement pour la pagination et la fraîcheur des données
   const fetchRooms = useCallback(
     (nextCursor: string | null = null) => {
       if (!socket || !isConnected) return;
 
       if (nextCursor) setIsFetchingMore(true);
-      else setIsLoading(true);
+      // Note: On ne remet pas isLoading à true ici si on a déjà chargé les données via HTTP
 
       // Émission de l'événement au serveur
       socket.emit("get_rooms", {
         cursor: nextCursor,
         limit: 15, // Taille de la page
       });
+      
+      // Nettoyage : quitter les rooms précédentes (optionnel selon votre logique serveur)
       return () => {
-        for (const roomId of roomsRef.current.map((r) => r.id)){
+        for (const roomId of roomsRef.current.map((r) => r.id)) {
           socket.emit("leave_room", roomId);
         }
       };
@@ -75,7 +103,7 @@ export default function SideBar({
     [socket, isConnected],
   );
 
-  // 2. Initialisation et écouteurs d'événements
+  // 2. Initialisation et écouteurs d'événements Socket
   useEffect(() => {
     if (!socket || !isConnected) return;
 
@@ -85,60 +113,52 @@ export default function SideBar({
       nextCursor: string | null;
     }) => {
       setRooms((prev) => {
-        // STRATÉGIE : Si le premier élément de la réponse est déjà présent
-        // ou si nous savons que nous sommes sur une page suivante via une ref
-
-        // On utilise une approche basée sur l'unicité des IDs
+        // STRATÉGIE HYBRIDE :
+        // Le HTTP a peut-être déjà chargé ces rooms. On filtre pour éviter les doublons.
         const existingIds = new Set(prev.map((r) => r.id));
         const newRooms = response.rooms.filter((r) => !existingIds.has(r.id));
 
-        // Si la liste actuelle est vide, c'est une initialisation
+        // Si la liste actuelle est vide, on prend tout
         if (prev.length === 0) return response.rooms;
 
-        // Sinon, on ajoute à la suite (Pagination)
-        // Note : On peut aussi vérifier si response.rooms contient la room "saved-"
-        // pour savoir si c'est la page 1 (car elle est injectée par le serveur sur cursor: null)
+        // Cas spécial "saved-" ou première page
         const isFirstPage = response.rooms.some((r) =>
           r.id.startsWith("saved-"),
         );
-
-        if (isFirstPage) {
-          return response.rooms; // Refresh complet de la page 1
-        }
-
         return [...prev, ...newRooms];
       });
 
       setCursor(response.nextCursor);
       setHasMore(!!response.nextCursor);
+      
+      // On confirme le succès et la fin du chargement
       setStatus("success");
       setIsLoading(false);
       setIsFetchingMore(false);
     };
 
-    // Listener: Mise à jour temps réel (Nouveau message, nouvelle room créée ailleurs, etc.)
+    // Listener: Mise à jour temps réel
     const handleRoomUpdate = (updatedRoom: RoomData) => {
       setRooms((prev) => {
-        // On retire l'ancienne version de la room (si elle existe)
         const otherRooms = prev.filter((r) => r.id !== updatedRoom.id);
-        // On place la room mise à jour tout en haut
-        return [...otherRooms, updatedRoom];
+        return [updatedRoom, ...otherRooms]; // Remonte en haut de la liste
       });
     };
 
-    // Listener: Gestion des erreurs
     const handleError = () => {
-      setStatus("error");
+      // On ne met en erreur que si on n'a AUCUNE donnée affichée (ni HTTP ni Socket)
+      if (roomsRef.current.length === 0) {
+          setStatus("error");
+      }
       setIsLoading(false);
       setIsFetchingMore(false);
     };
 
     socket.on("rooms_list_data", handleRoomsResponse);
-    socket.on("room_list_updated", handleRoomUpdate); // Le serveur doit émettre ceci quand un message arrive
+    socket.on("room_list_updated", handleRoomUpdate);
     socket.on("new_room_created", handleRoomUpdate);
     socket.on("error_fetching_rooms", handleError);
 
-    // Charger la première page au montage ou à la reconnexion
     fetchRooms(null);
 
     return () => {
@@ -147,18 +167,19 @@ export default function SideBar({
       socket.off("new_room_created", handleRoomUpdate);
       socket.off("error_fetching_rooms", handleError);
     };
-  }, [socket, isConnected]); // Retirez fetchRooms des dépendances pour éviter boucle infinie si mal géré, ou utilisez useRef
+  }, [socket, isConnected]); // fetchRooms est stable via useCallback, pas besoin de l'ajouter
 
   // --- GESTION DE LA SÉLECTION INITIALE ---
   useEffect(() => {
     if (status === "success" && rooms.length) {
       if (socket && rooms.length) {
-        for (const roomId of roomsRef.current.map((r) => r.id)){
+        // Rejoindre les rooms pour écouter les messages
+        for (const roomId of rooms.map((r) => r.id)) {
           socket.emit("join_room", roomId);
         }
       }
     }
-  }, [rooms, status]);
+  }, [rooms, status, socket]); // Ajout de socket et suppression de roomsRef pour utiliser rooms directement
 
   function handleRoomSelect(room: RoomData) {
     onCloseChat();
@@ -167,15 +188,14 @@ export default function SideBar({
     setActiveRoomId(room.id);
   }
 
-  // Redirection si liste vide chargée
-  if (status === "success" && !rooms.length) {
-    // Attention: ceci peut causer des boucles si mal géré, vérifier pathname
-    // onCloseChat();
-  }
-
+  // Redirection si nécessaire (logique existante conservée)
   if (status === "success" && !activeRoomId && pathname === "/messages/chat") {
     navigate("/messages");
   }
+
+  // Calculer l'état de chargement global :
+  // On affiche le squelette seulement si on charge HTTP ET qu'on a pas encore de données
+  const showSkeleton = (isLoading || isHttpLoading) && rooms.length === 0;
 
   return (
     <div className="relative flex h-full flex-col">
@@ -193,16 +213,17 @@ export default function SideBar({
       <InfiniteScrollContainer
         className="relative flex max-w-full flex-1 flex-col space-y-5 overflow-y-auto bg-card/30 sm:bg-background/50"
         onBottomReached={() => {
-          if (hasMore && !isFetchingMore && !isLoading) {
-            fetchRooms(cursor); // Charger la page suivante
+          // On déclenche le chargement via socket seulement si on a un curseur ou qu'on est pas en train de charger
+          if (hasMore && !isFetchingMore && !showSkeleton) {
+            fetchRooms(cursor); 
           }
         }}
       >
-        {/* Loading Initial */}
-        {status === "pending" && isLoading && <RoomsLoadingSkeleton />}
+        {/* Loading Initial : Combine HTTP et Socket states */}
+        {showSkeleton && <RoomsLoadingSkeleton />}
 
         {/* Empty State */}
-        {status === "success" && !rooms.length && (
+        {status === "success" && !showSkeleton && !rooms.length && (
           <div className="flex w-full flex-1 select-none items-center px-3 py-8 text-center italic text-muted-foreground">
             <div className="my-8 flex w-full flex-col items-center gap-2 text-center text-muted-foreground">
               <MessageSquare size={150} />
@@ -216,7 +237,7 @@ export default function SideBar({
         )}
 
         {/* Error State */}
-        {status === "error" && (
+        {status === "error" && rooms.length === 0 && (
           <div className="flex w-full flex-1 select-none items-center px-3 py-8 text-center italic text-muted-foreground">
             <div className="my-8 flex w-full select-none flex-col items-center gap-2 text-center text-muted-foreground">
               <Frown size={150} />
@@ -239,7 +260,7 @@ export default function SideBar({
           </ul>
         )}
 
-        {/* Loading More Spinner */}
+        {/* Loading More Spinner (Pagination Socket) */}
         {isFetchingMore && (
           <div className="flex w-full justify-center p-4">
             <Loader2 className="mx-auto animate-spin" />
