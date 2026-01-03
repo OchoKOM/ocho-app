@@ -5,13 +5,14 @@ import { useSession } from "../SessionProvider";
 import RoomsLoadingSkeleton from "./skeletons/RoomSkeleton";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useActiveRoom } from "@/context/ChatContext";
-import { Frown, Loader2, MessageSquare, Search, SquarePen } from "lucide-react";
+import { Frown, Loader2, MessageSquare, Search, SquarePen, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { t } from "@/context/LanguageContext";
 import { useProgress } from "@/context/ProgressContext";
 import { useSocket } from "@/components/providers/SocketProvider";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import kyInstance from "@/lib/ky";
+import { Input } from "@/components/ui/input";
 
 interface SidebarProps {
   activeRoom: (room: RoomData) => void;
@@ -38,11 +39,15 @@ export default function SideBar({
   const { activeRoomId, setActiveRoomId } = useActiveRoom();
   const pathname = usePathname();
   const { startNavigation: navigate } = useProgress();
-  const { chats, startNewChat, noChat, dataError } = t();
+  const { chats, startNewChat, noChat, dataError, search } = t();
 
   // --- SOCKET & STATE ---
   const { socket, isConnected } = useSocket();
   const [rooms, setRooms] = useState<RoomData[]>([]);
+
+  // --- RECHERCHE LOCALE ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -246,6 +251,28 @@ export default function SideBar({
     setActiveRoomId(room.id);
   }
 
+  // --- FILTRAGE LOCAL ---
+  const filteredRooms = rooms.filter((room) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    
+    // Recherche par nom de groupe
+    if (room.isGroup && room.name?.toLowerCase().includes(query)) return true;
+    
+    // Recherche par nom des membres
+    const memberMatch = room.members.some(m => 
+        m.user?.displayName?.toLowerCase().includes(query) || 
+        m.user?.username?.toLowerCase().includes(query)
+    );
+    if (memberMatch) return true;
+
+    // (Optionnel) Recherche dans le dernier message
+    if (room.messages.length > 0 && room.messages[0].content?.toLowerCase().includes(query)) return true;
+
+    return false;
+  });
+
+
   if (status === "success" && !activeRoomId && pathname === "/messages/chat") {
     navigate("/messages");
   }
@@ -254,27 +281,62 @@ export default function SideBar({
 
   return (
     <div className="relative flex h-full flex-col">
-      <div className="flex items-center justify-between p-4 text-lg font-bold shadow-sm max-sm:bg-card/50">
-        <span>{chats}</span>
-        <span
-          className="cursor-pointer hover:text-primary max-sm:hidden"
-          title={startNewChat}
-          onClick={onNewChat}
-        >
-          <SquarePen />
-        </span>
+      <div className="flex h-[60px] items-center justify-between p-4 text-lg font-bold shadow-sm max-sm:bg-card/50">
+        {!isSearchOpen ? (
+          <>
+            <span>{chats}</span>
+            <div className="flex items-center gap-2">
+               {/* Bouton pour ouvrir la recherche sur mobile/desktop dans le header */}
+              <span
+                className="cursor-pointer hover:text-primary"
+                onClick={() => setIsSearchOpen(true)}
+                title={search}
+              >
+                <Search size={22} />
+              </span>
+              <span
+                className="cursor-pointer hover:text-primary max-sm:hidden"
+                title={startNewChat}
+                onClick={onNewChat}
+              >
+                <SquarePen />
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="flex w-full items-center gap-2 animate-in fade-in slide-in-from-top-2">
+            <Input 
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={search + "..."}
+                className="h-9"
+            />
+            <span 
+                className="cursor-pointer hover:text-destructive"
+                onClick={() => {
+                    setIsSearchOpen(false);
+                    setSearchQuery("");
+                }}
+            >
+                <X />
+            </span>
+          </div>
+        )}
       </div>
 
       <InfiniteScrollContainer
         className="relative flex max-w-full flex-1 flex-col space-y-5 overflow-y-auto bg-card/30 sm:bg-background/50"
         onBottomReached={() => {
-          if (hasMore && !isFetchingMore && !showSkeleton) {
+          // On ne fetch plus que si on n'est pas en train de rechercher
+          if (hasMore && !isFetchingMore && !showSkeleton && !searchQuery) {
             fetchRooms(cursor);
           }
         }}
       >
         {showSkeleton && <RoomsLoadingSkeleton />}
 
+        {/* Cas 1 : Vraiment aucune room (cache vide) */}
         {status === "success" && !showSkeleton && !rooms.length && (
           <div className="flex w-full flex-1 select-none items-center px-3 py-8 text-center italic text-muted-foreground">
             <div className="my-8 flex w-full flex-col items-center gap-2 text-center text-muted-foreground">
@@ -287,6 +349,16 @@ export default function SideBar({
             </div>
           </div>
         )}
+        
+        {/* Cas 2 : Des rooms existent, mais la recherche ne donne rien */}
+        {status === "success" && rooms.length > 0 && filteredRooms.length === 0 && (
+             <div className="flex w-full flex-1 select-none items-center justify-center px-3 py-8 text-center italic text-muted-foreground">
+                <div className="flex flex-col items-center gap-2">
+                    <Search size={40} className="opacity-50" />
+                    <p>Aucun résultat trouvé pour "{searchQuery}"</p>
+                </div>
+             </div>
+        )}
 
         {status === "error" && rooms.length === 0 && (
           <div className="flex w-full flex-1 select-none items-center px-3 py-8 text-center italic text-muted-foreground">
@@ -297,20 +369,21 @@ export default function SideBar({
           </div>
         )}
 
-        {rooms.length > 0 && (
+        {filteredRooms.length > 0 && (
           <ul className="">
-            {rooms.map((room, index) => (
+            {filteredRooms.map((room, index) => (
               <RoomPreview
-                key={room.id} // Utiliser room.id est plus sûr que index pour les listes dynamiques
+                key={room.id} 
                 room={room}
                 active={selectedRoomId === room.id}
                 onSelect={() => handleRoomSelect(room)}
+                highlight={searchQuery} // On passe le terme de recherche
               />
             ))}
           </ul>
         )}
 
-        {isFetchingMore && (
+        {isFetchingMore && !searchQuery && (
           <ul>
             <li className="flex w-full justify-center p-4">
               <Loader2 className="mx-auto animate-spin" />
@@ -319,10 +392,12 @@ export default function SideBar({
         )}
       </InfiniteScrollContainer>
 
+      {/* Bouton flottant mobile conservé, mais qui ouvre aussi la recherche si besoin */}
+      {!isSearchOpen && (
       <div className="fixed bottom-20 right-5 flex gap-2 sm:absolute sm:bottom-5">
         <div
-          className="flex aspect-square h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-muted-foreground/60 text-muted shadow-md hover:bg-muted-foreground hover:shadow-lg hover:shadow-muted-foreground/30 dark:text-muted-foreground dark:bg-muted"
-          // Pour les recherches
+          className="flex aspect-square h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-muted-foreground/60 text-muted shadow-md hover:bg-muted-foreground hover:shadow-lg hover:shadow-muted-foreground/30 dark:text-muted-foreground dark:bg-muted sm:hidden"
+          onClick={() => setIsSearchOpen(true)}
         >
           <Search />
         </div>
@@ -334,6 +409,7 @@ export default function SideBar({
           <SquarePen />
         </div>
       </div>
+      )}
     </div>
   );
 }

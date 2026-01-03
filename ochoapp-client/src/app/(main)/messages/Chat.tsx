@@ -24,7 +24,7 @@ import MessagesSkeleton from "./skeletons/MessagesSkeleton";
 import { toast } from "@/components/ui/use-toast";
 import RoomHeader from "./RoomHeader";
 import { useMenuBar } from "@/context/MenuBarContext";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { t } from "@/context/LanguageContext";
 import ChatSkeleton from "./skeletons/ChatSkeleton";
@@ -62,6 +62,9 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
   const { startNavigation: navigate } = useProgress();
   const [prevPathname, setPrevPathname] = useState(pathname);
   const [messageInputExpanded, setMessageInputExpanded] = useState(true);
+  
+  // State pour la recherche locale de messages
+  const [searchQuery, setSearchQuery] = useState("");
 
   // État pour gérer les messages en cours d'envoi (Optimistic UI)
   const [sentMessages, setSentMessages] = useState<SentMessageState[]>([]);
@@ -77,11 +80,11 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
   >([]);
 
   // --- NOUVEAU : RESET DES ÉTATS AU CHANGEMENT DE ROOM ---
-  // Essentiel pour ne pas mélanger les messages de l'ancienne room avec la nouvelle
   useEffect(() => {
     setNewMessages([]);
     setSentMessages([]);
     setTypingUsers([]);
+    setSearchQuery(""); // Reset search
   }, [roomId]);
 
   // --- GESTION DU SOCKET : JOIN / LEAVE / EVENTS ---
@@ -173,7 +176,7 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
   useEffect(() => {
     setIsVisible(!roomId);
     if (roomId && window.location.pathname !== "/messages/chat") {
-      history.pushState(null, "", "/messages/chat");
+      window.history.pushState(null, "", "/messages/chat");
       navigate("/messages/chat");
     }
     return () => {
@@ -235,6 +238,25 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
       enabled: !!roomId,
     });
 
+  const allMessages = data?.pages.flatMap((page) => page?.messages) || [];
+
+  // --- FILTRAGE LOCAL DES MESSAGES ---
+  // On filtre si une recherche est active
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery) return allMessages;
+    return allMessages.filter(msg =>
+      msg.content && msg.content.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [allMessages, searchQuery]);
+
+  // Idem pour les nouveaux messages socket
+  const filteredNewMessages = useMemo(() => {
+     if (!searchQuery) return newMessages;
+     return newMessages.filter(msg =>
+      msg.content && msg.content.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [newMessages, searchQuery]);
+
   if (!roomId) return null;
   if (isLoading) return <ChatSkeleton onChatClose={onClose} />;
 
@@ -259,8 +281,6 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
     loggedMember?.type === "OLD" || loggedMember?.type === "BANNED"
   );
   let message = "Envoi de messages non autorisés";
-
-  const messages = data?.pages.flatMap((page) => page?.messages) || [];
 
   const otherUser = !room.isGroup
     ? room.members.find((user) => user?.userId !== loggedMember?.userId)
@@ -296,14 +316,15 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
     // Mise à jour optimiste de l'UI (React Query)
     queryClient.setQueryData(["room", "messages", roomId], (old: any) => {
       if (!old) return old;
-      return({
-      ...old,
-      pages: old.pages.map((page: any, index: number) =>
-        index === 0
-          ? { ...page, messages: [newMessage, ...page.messages] }
-          : page,
-      ),
-    })});
+      return {
+        ...old,
+        pages: old.pages.map((page: any, index: number) =>
+          index === 0
+            ? { ...page, messages: [newMessage, ...page.messages] }
+            : page,
+        ),
+      };
+    });
 
     socket.emit("send_message", {
       content: content.trim(),
@@ -362,21 +383,32 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
         <InfiniteScrollContainer
           className="flex w-full flex-col-reverse gap-4 p-4 px-2"
           onBottomReached={() => {
-            hasNextPage && !isFetchingNextPage && fetchNextPage();
+            // On désactive le scroll infini si on est en train de chercher pour éviter des comportements étranges
+            if(!searchQuery) {
+                hasNextPage && !isFetchingNextPage && fetchNextPage();
+            }
           }}
           reversed
         >
           {status === "pending" && <MessagesSkeleton />}
 
-          {/* État vide */}
+          {/* État vide : Seulement si aucun message TOTAL (pas juste le filtre) */}
           {status === "success" &&
             !hasNextPage &&
-            !messages.length &&
+            !allMessages.length &&
             sentMessages.length === 0 && (
               <p className="my-auto flex w-full flex-1 select-none items-center justify-center px-2 text-center italic text-muted-foreground">
                 {noMessage}
               </p>
             )}
+            
+          {/* État recherche vide : Si on a des messages mais que le filtre ne renvoie rien */}
+          {status === "success" && allMessages.length > 0 && filteredMessages.length === 0 && filteredNewMessages.length === 0 && searchQuery && (
+             <div className="my-auto flex w-full flex-1 select-none flex-col items-center justify-center gap-2 px-2 text-center italic text-muted-foreground">
+                <Search className="opacity-50" />
+                <p>Aucun message trouvé pour "{searchQuery}"</p>
+             </div>
+          )}
 
           {status === "error" && (
             <div className="flex w-full flex-1 select-none flex-col items-center px-3 py-8 text-center italic text-muted-foreground">
@@ -390,10 +422,10 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
               {/* Indicateur de frappe  */}
               <TypingIndicator typingUsers={typingUsers} />
               
-              {/* Messages "live" reçus via socket avant refresh */}
-              {newMessages.map((msg, i) => {
+              {/* Messages "live" reçus via socket avant refresh (filtrés) */}
+              {filteredNewMessages.map((msg, i) => {
                 const showTime =
-                  i === newMessages.length - 1 || (i % 20 === 0 && i !== 0);
+                  i === filteredNewMessages.length - 1 || (i % 20 === 0 && i !== 0);
 
                 return (
                   <Message
@@ -401,11 +433,12 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
                     message={msg}
                     room={room}
                     showTime={showTime}
+                    highlight={searchQuery} // Propager la recherche
                   />
                 );
               })}
               
-              {/* Messages en cours d'envoi (échecs ou loading) */}
+              {/* Messages en cours d'envoi (échecs ou loading) - Pas de filtrage ici généralement */}
               {sentMessages.map((msg) => (
                 <SendingMessage
                   key={msg.tempId}
@@ -415,10 +448,10 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
                 />
               ))}
 
-              {/* MESSAGES CONFIRMÉS (Venant de la DB via React Query) */}
-              {messages.map((message, index) => {
+              {/* MESSAGES CONFIRMÉS (Venant de la DB via React Query - Filtrés) */}
+              {filteredMessages.map((message, index) => {
                 const showTime =
-                  index === messages.length - 1 ||
+                  index === filteredMessages.length - 1 ||
                   (index % 20 === 0 && index !== 0);
 
                 return (
@@ -427,13 +460,14 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
                     message={message}
                     room={room}
                     showTime={showTime}
+                    highlight={searchQuery} // Propager la recherche
                   />
                 );
               })}
             </>
           )}
         </InfiniteScrollContainer>
-        {isFetchingNextPage && (
+        {isFetchingNextPage && !searchQuery && (
           <div className="flex w-full justify-center">
             <Loader2 className="mx-auto my-3 animate-spin" />
           </div>
@@ -451,11 +485,19 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
           >
             <Button
               variant="outline"
-              onClick={() => setMessageInputExpanded(!messageInputExpanded)}
+              onClick={() => {
+                 setMessageInputExpanded(!messageInputExpanded);
+                 if(messageInputExpanded) {
+                    // Si on passe en mode recherche (input visible), on focus
+                 } else {
+                    // Si on ferme, on vide la recherche
+                    setSearchQuery("");
+                 }
+              }}
               title={search}
-              className="aspect-square size-12 cursor-pointer p-2 outline-input"
+              className={cn("aspect-square size-12 cursor-pointer p-2 outline-input", !messageInputExpanded && searchQuery && "bg-primary text-primary-foreground")}
             >
-              <Search className="size-5" />
+              {!messageInputExpanded ? <X /> : <Search className="size-5" />}
             </Button>
             {
               <div
@@ -471,6 +513,8 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
                   className={cn(
                     "max-h-[10rem] min-h-10 w-full overflow-y-auto rounded-none border-none bg-transparent px-4 py-2 pr-0.5 outline-none ring-offset-transparent transition-all duration-75 focus-visible:ring-transparent",
                   )}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
             }
@@ -773,4 +817,3 @@ export function TypingIndicator({ typingUsers = [] }: TypingIndicatorProps) {
     </div>
   );
 }
-

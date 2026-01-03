@@ -22,7 +22,32 @@ type MessageProps = {
   message: MessageData;
   room: RoomData;
   showTime?: boolean;
+  highlight?: string; // Nouvelle prop
 };
+
+// --- SOUS-COMPOSANT DE SURBRILLANCE ---
+function HighlightText({ text, highlight }: { text: string; highlight?: string }) {
+  if (!highlight || !highlight.trim()) {
+    return <>{text}</>;
+  }
+
+  const safeHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${safeHighlight})`, 'gi'));
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === highlight.toLowerCase() ? (
+          <span key={i} className="bg-amber-500/50 p-0 rounded-[8px] px-[1px] leading-none border border-amber-500 h-fit">
+            {part}
+          </span>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
 
 // --- SOUS-COMPOSANT
 export function DeletionPlaceholder({
@@ -147,6 +172,7 @@ export const MessageBubbleContent = ({
   onContextMenu,
   isClone = false,
   toggleCheck,
+  highlight, // Nouvelle prop
 }: {
   message: MessageData;
   isOwner: boolean;
@@ -154,6 +180,7 @@ export const MessageBubbleContent = ({
   onContextMenu?: (e: React.MouseEvent) => void;
   isClone?: boolean;
   toggleCheck?: () => void;
+  highlight?: string;
 }) => {
   return (
     <div className={cn("relative w-fit", isClone && "h-full")}>
@@ -175,7 +202,9 @@ export const MessageBubbleContent = ({
             isClone && "cursor-default shadow-lg ring-2 ring-background/50",
           )}
         >
-          {message.content ?? (
+          {message.content ? (
+            <HighlightText text={message.content} highlight={highlight} />
+          ) : (
             <span className="italic">{unavailableMessage}</span>
           )}
         </div>
@@ -188,6 +217,7 @@ export default function Message({
   message,
   room,
   showTime = false,
+  highlight, // Nouvelle prop
 }: MessageProps) {
   const { user: loggedUser } = useSession();
   const queryClient = useQueryClient();
@@ -649,6 +679,7 @@ export default function Message({
                           isOwner={isOwner}
                           unavailableMessage={unavailableMessage}
                           toggleCheck={toggleCheck}
+                          highlight={highlight} // Propager la recherche
                         />
                       </div>
                     </div>

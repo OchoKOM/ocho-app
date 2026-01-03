@@ -13,16 +13,43 @@ import FormattedInt from "@/components/FormattedInt";
 import { t } from "@/context/LanguageContext";
 import Verified from "@/components/Verified";
 import { useProgress } from "@/context/ProgressContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSocket } from "@/components/providers/SocketProvider";
 
 interface RoomProps {
   room: RoomData;
   active: boolean;
   onSelect: () => void;
+  highlight?: string; // Prop pour la recherche
 }
 
-export default function RoomPreview({ room, active, onSelect }: RoomProps) {
+// --- Composant utilitaire pour la surbrillance ---
+function HighlightText({ text, highlight }: { text: string; highlight?: string }) {
+  if (!highlight || !highlight.trim()) {
+    return <>{text}</>;
+  }
+
+  // Échapper les caractères spéciaux regex
+  const safeHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${safeHighlight})`, 'gi'));
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === highlight.toLowerCase() ? (
+          <span key={i} className="bg-amber-500/50 p-0 rounded px-[1px] leading-none border border-amber-500 h-fit">
+            {part}
+          </span>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
+
+export default function RoomPreview({ room, active, onSelect, highlight }: RoomProps) {
   const { user: loggedinUser } = useSession();
   const { socket, isConnected } = useSocket();
   const [typing, setTyping] = useState<{
@@ -310,7 +337,7 @@ export default function RoomPreview({ room, active, onSelect }: RoomProps) {
         noMessage
       }
     >
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center gap-2">
         {room.isGroup ? (
           <GroupAvatar size={45} avatarUrl={room.groupAvatarUrl} />
         ) : (
@@ -321,20 +348,21 @@ export default function RoomPreview({ room, active, onSelect }: RoomProps) {
             hideBadge={false}
           />
         )}
-        <div className="">
+        <div className="flex-1 overflow-hidden">
           <span
             className={cn(
-              "font-semibold",
-              isVerified && "flex items-center gap-1",
+              "font-semibold block truncate",
+              isVerified && "flex items-center",
             )}
           >
-            {chatName}
+            {/* Surbrillance dans le nom */}
+            <HighlightText text={chatName} highlight={highlight} />
             {verifiedCheck}
           </span>
-          <div className="flex w-fit max-w-full flex-shrink-0 items-center gap-1 text-sm text-muted-foreground">
+          <div className="flex w-full items-center gap-1 text-sm text-muted-foreground">
             <span
               className={cn(
-                "line-clamp-2 text-ellipsis",
+                "line-clamp-2 text-ellipsis break-all",
                 (messageType !== "CONTENT" || typing.isTyping) &&
                   "text-xs text-primary",
                 typing.isTyping && "animate-pulse",
@@ -352,14 +380,19 @@ export default function RoomPreview({ room, active, onSelect }: RoomProps) {
                         {messagePreviewContent.split("[r]")[1]}
                       </>
                     ) : (
-                      messagePreviewContent
+                      /* Surbrillance dans le dernier message si c'est du texte */
+                      messageType === "CONTENT" ? (
+                        <HighlightText text={messagePreviewContent} highlight={highlight} />
+                      ) : (
+                        messagePreviewContent
+                      )
                     ))) ||
                   noMessage}
             </span>
             {!typing.isTyping && (
               <>
-                <span>•</span>
-                <span className="line-clamp-1 min-w-fit">
+                <span className="flex-shrink-0">•</span>
+                <span className="line-clamp-1 min-w-fit flex-shrink-0">
                   <Time time={messagePreview.createdAt} full={false} />
                 </span>
               </>
@@ -367,7 +400,7 @@ export default function RoomPreview({ room, active, onSelect }: RoomProps) {
           </div>
         </div>
         {!!unreadCount && (
-          <span className="relative flex flex-1 items-center justify-end">
+          <span className="relative flex items-center justify-end pl-2">
             <span className="relative min-w-fit rounded-full bg-primary px-1 text-xs font-medium tabular-nums text-primary-foreground">
               <FormattedInt number={unreadCount} />
             </span>
