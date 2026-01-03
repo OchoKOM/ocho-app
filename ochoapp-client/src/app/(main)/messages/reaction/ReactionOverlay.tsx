@@ -7,6 +7,7 @@ import { SKIN_TONES, QUICK_REACTIONS, EMOJI_CATEGORIES } from "../lists/emoji-li
 import { MessageBubbleContent } from "../Message";
 import UserAvatar from "@/components/UserAvatar";
 import { useSession } from "../../SessionProvider";
+import { t } from "@/context/LanguageContext";
 
 export interface ReactionData {
   content: string;
@@ -436,7 +437,7 @@ export function ReactionDetailsPopover({
                     </div>
                     <div className="flex flex-col">
                       <span className="text-sm font-semibold truncate max-w-[140px]">
-                        {isMe ? "Vous" : user.displayName}
+                        {isMe ? t().you : user.displayName}
                       </span>
                       <span className="text-[10px] text-muted-foreground">@{user.username}</span>
                     </div>

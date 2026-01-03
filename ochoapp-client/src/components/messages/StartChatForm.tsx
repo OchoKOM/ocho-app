@@ -12,6 +12,7 @@ import { Input } from "../ui/input";
 import UserAvatar from "../UserAvatar";
 import { useCreateChatRoomMutation, useSaveMessageMutation } from "./mutations";
 import LoadingButton from "../LoadingButton";
+import { t } from "@/context/LanguageContext";
 
 interface StartChatFormProps {
   onChatStart: (room: RoomData) => void;
@@ -187,7 +188,7 @@ export default function StartChatForm({ onChatStart }: StartChatFormProps) {
                     <div>
                       <p>
                         {user.displayName}
-                        {user.id === loggedinUser.id && " (Vous)"}
+                        {user.id === loggedinUser.id && ` (${t().you})`}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         @{user.username}
@@ -238,7 +239,7 @@ export default function StartChatForm({ onChatStart }: StartChatFormProps) {
                   <div>
                     <p>
                       {user.displayName}
-                      {user.id === loggedinUser.id && " (Vous)"}
+                      {user.id === loggedinUser.id && ` (${t().you})`}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       @{user.username}

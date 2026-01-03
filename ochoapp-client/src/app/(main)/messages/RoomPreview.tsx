@@ -24,32 +24,45 @@ interface RoomProps {
 }
 
 // --- Composant utilitaire pour la surbrillance ---
-function HighlightText({ text, highlight }: { text: string; highlight?: string }) {
+function HighlightText({
+  text,
+  highlight,
+}: {
+  text: string;
+  highlight?: string;
+}) {
   if (!highlight || !highlight.trim()) {
     return <>{text}</>;
   }
 
   // Échapper les caractères spéciaux regex
-  const safeHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = text.split(new RegExp(`(${safeHighlight})`, 'gi'));
+  const safeHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${safeHighlight})`, "gi"));
 
   return (
     <>
       {parts.map((part, i) =>
         part.toLowerCase() === highlight.toLowerCase() ? (
-          <span key={i} className="bg-amber-500/50 p-0 rounded px-[1px] leading-none border border-amber-500 h-fit">
+          <span
+            key={i}
+            className="h-fit rounded border border-amber-500 bg-amber-500/50 p-0 px-[1px] leading-none"
+          >
             {part}
           </span>
         ) : (
           part
-        )
+        ),
       )}
     </>
   );
 }
 
-
-export default function RoomPreview({ room, active, onSelect, highlight }: RoomProps) {
+export default function RoomPreview({
+  room,
+  active,
+  onSelect,
+  highlight,
+}: RoomProps) {
   const { user: loggedinUser } = useSession();
   const { socket, isConnected } = useSocket();
   const [typing, setTyping] = useState<{
@@ -75,7 +88,7 @@ export default function RoomPreview({ room, active, onSelect, highlight }: RoomP
           ["room", "unread", room.id],
           (old) => ({
             unreadCount: (old?.unreadCount || 0) + 1,
-          })
+          }),
         );
       }
     };
@@ -87,7 +100,7 @@ export default function RoomPreview({ room, active, onSelect, highlight }: RoomP
           ["room", "unread", room.id],
           {
             unreadCount: 0,
-          }
+          },
         );
       }
     };
@@ -180,9 +193,22 @@ export default function RoomPreview({ room, active, onSelect, highlight }: RoomP
   const { unreadCount } = data;
   const isSaved = room.id === `saved-${loggedinUser.id}`;
 
+  const currentUser = room.members.find(
+    (member) => member.userId === loggedinUser.id,
+  )?.user
+    ? {
+        ...room.members.find((member) => member.userId === loggedinUser.id)
+          ?.user,
+        ...loggedinUser,
+        name: t().savedMessages,
+      }
+    : {
+        ...loggedinUser,
+        name: t().savedMessages,
+    };
+
   const otherUser: UserData | null = isSaved
-    ? room.members.find((member) => member.userId === loggedinUser.id)?.user ||
-      null
+    ? currentUser
     : room?.members?.filter((member) => member.userId !== loggedinUser.id)[0]
         .user;
 
@@ -297,8 +323,7 @@ export default function RoomPreview({ room, active, onSelect, highlight }: RoomP
             .replace("[name]", sender || appUser)
             .replace("[member]", recipientFirstName || appUser)
       : recipient?.id === loggedinUser.id
-        ? reactedToMessage
-            .replace("[name]", sender || appUser)
+        ? reactedToMessage.replace("[name]", sender || appUser)
         : reactedMemberMessage
             .replace("[name]", sender || appUser)
             .replace("[member]", recipientFirstName || appUser),
@@ -351,7 +376,7 @@ export default function RoomPreview({ room, active, onSelect, highlight }: RoomP
         <div className="flex-1 overflow-hidden">
           <span
             className={cn(
-              "font-semibold block truncate",
+              "block truncate font-semibold",
               isVerified && "flex items-center",
             )}
           >
@@ -379,13 +404,14 @@ export default function RoomPreview({ room, active, onSelect, highlight }: RoomP
                         </span>
                         {messagePreviewContent.split("[r]")[1]}
                       </>
+                    ) : /* Surbrillance dans le dernier message si c'est du texte */
+                    messageType === "CONTENT" ? (
+                      <HighlightText
+                        text={messagePreviewContent}
+                        highlight={highlight}
+                      />
                     ) : (
-                      /* Surbrillance dans le dernier message si c'est du texte */
-                      messageType === "CONTENT" ? (
-                        <HighlightText text={messagePreviewContent} highlight={highlight} />
-                      ) : (
-                        messagePreviewContent
-                      )
+                      messagePreviewContent
                     ))) ||
                   noMessage}
             </span>

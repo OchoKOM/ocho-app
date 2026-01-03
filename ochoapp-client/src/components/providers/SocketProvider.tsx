@@ -13,7 +13,7 @@ import { useSession } from "@/app/(main)/SessionProvider";
 import { toast } from "../ui/use-toast"; 
 import { Loader2, Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
+import { t } from "@/context/LanguageContext";
 
 // Définition des types pour le contexte
 interface SocketContextType {
@@ -173,7 +173,7 @@ export default function SocketProvider({
       if (isComponentUnmounted) return;
       console.log("📩 Nouvelle discussion :", room);
       socketInstance.emit("join_room", room.id);
-      toast({ description: "Vous avez été ajouté à une nouvelle discussion." });
+      toast({ description: t().youAreAddedToANewRoom });
     };
 
     // Événements Système (Reconnexion)
@@ -249,19 +249,19 @@ export default function SocketProvider({
         {isConnected ? (
           <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-600 dark:text-emerald-400 dark:bg-emerald-900 dark:border-emerald-800 shadow-md">
             <Wifi className="h-4 w-4" />
-            <span className="text-xs font-semibold">Connexion établie</span>
+            <span className="text-xs font-semibold">{t().connected}</span>
           </div>
         ) : isConnecting ? (
           <div className="flex animate-pulse items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-600 dark:text-amber-400 dark:bg-amber-900 dark:border-amber-800 shadow-md">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span className="text-xs font-semibold">
-              Reconnexion...
+             {t().reconnecting}
             </span>
           </div>
         ) : (
           <div className="flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-red-600 dark:text-red-400 dark:bg-red-900 dark:border-red-800 shadow-md">
             <WifiOff className="h-4 w-4" />
-            <span className="text-xs font-semibold">Hors ligne</span>
+            <span className="text-xs font-semibold">{t().realtimeServerOffline}</span>
           </div>
         )}
       </div>

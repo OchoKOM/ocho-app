@@ -161,6 +161,10 @@ export const english = {
   unableToLoadChat: 'Unable to load chat "[name]"',
   waitEndOfOperation: "Wait for the end of the current operation",
   youCanChat: "You can now chat",
+  savedMessages: "Saved messages",
+  reconnecting: "Reconnecting...",
+  connected: "Connected",
+  realtimeServerOffline: "Realtime server is offline",
   // Reactions
   reactText: "React",
   reactions: "Reactions",
@@ -252,6 +256,8 @@ export const english = {
   groupNameOptional: "Group name (optional)",
   hide: "Hide",
   // Room
+  room: "Room",
+  youAreAddedToANewRoom: "You are added to a new room",
   you: "You",
   newMember: "New member: [name]",
   youAddedMember: "You added [name] to the group.",
@@ -456,6 +462,10 @@ export const french: Vocabulary = {
   unableToLoadChat: 'Impossible de charger la discussion "[name]"',
   waitEndOfOperation: "Patientez la fin de l'opération en cours",
   youCanChat: "Vous pouvez maintenant discuter",
+  savedMessages: "Messages enregistrés",
+  reconnecting: "Reconnexion...",
+  connected: "Connecté",
+  realtimeServerOffline: "Le serveur de temps reel est hors ligne",
   // Reactions
   reactText: "Réagir",
   reactions: "Réactions",
@@ -553,6 +563,8 @@ export const french: Vocabulary = {
   hide: "Masquer",
   groupNameOptional: "Nom du groupe (facultatif)",
   // Room
+  room: "Discussion",
+  youAreAddedToANewRoom: "Vous avez été ajouté à une nouvelle discussion",
   you: "Vous",
   newMember: "Nouveau membre : [name]",
   youAddedMember: "Vous avez ajouté [name] au groupe.",

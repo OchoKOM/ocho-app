@@ -316,7 +316,7 @@ export default function SideBar({
         </div>
       </div>
       {isSearchOpen && (
-        <ul className="sticky top-0 z-50 bg-card/30 sm:bg-background/50 p-2 py-1.5">
+        <ul className="sticky top-0 z-50 bg-card/30 p-2 py-1.5 sm:bg-background/50">
           <li className="relative flex w-full items-center gap-2 p-2 animate-in fade-in slide-in-from-top-2">
             <div className="relative w-full">
               <Input
@@ -324,6 +324,7 @@ export default function SideBar({
                 className={cn("max-w-full rounded-3xl pe-16 transition-all")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus
               />
               {!!searchQuery.length && (
                 <X
@@ -334,7 +335,7 @@ export default function SideBar({
               <SearchIcon
                 size={40}
                 className={cn(
-                  "absolute top-1/2 size-5 -translate-y-1/2 transform text-muted-foreground right-3",
+                  "absolute right-3 top-1/2 size-5 -translate-y-1/2 transform text-muted-foreground",
                 )}
               />
             </div>
@@ -410,8 +411,6 @@ export default function SideBar({
         )}
       </InfiniteScrollContainer>
 
-      {/* Bouton flottant mobile conservé, mais qui ouvre aussi la recherche si besoin */}
-      {!isSearchOpen && (
         <div className="fixed bottom-20 right-5 flex gap-2 sm:absolute sm:bottom-5">
           <div
             className="flex aspect-square h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-muted-foreground/60 text-muted shadow-md hover:bg-muted-foreground hover:shadow-lg hover:shadow-muted-foreground/30 dark:bg-muted dark:text-muted-foreground sm:hidden"
@@ -427,7 +426,6 @@ export default function SideBar({
             <SquarePen />
           </div>
         </div>
-      )}
     </div>
   );
 }
