@@ -6,7 +6,6 @@ import RoomsLoadingSkeleton from "./skeletons/RoomSkeleton";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useActiveRoom } from "@/context/ChatContext";
 import {
-  ChevronUp,
   Frown,
   Loader2,
   MessageSquare,
