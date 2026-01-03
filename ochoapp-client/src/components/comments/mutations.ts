@@ -13,7 +13,9 @@ import { useProgress } from "@/context/ProgressContext";
 
 export function useSubmitCommentMutation(postId: string) {
   const { toast } = useToast();
-  const { commentSent, unaBleToSendComment } = t();
+  const { commentSent, unaBleToSendComment } = t([
+    "commentSent", "unaBleToSendComment"
+  ]);
 
   const queryClient = useQueryClient();
 
@@ -69,7 +71,8 @@ export function useSubmitCommentMutation(postId: string) {
 
 export function useSubmitReplyMutation(commentId: string, firstLevelCommentId: string) {
   const { toast } = useToast();
-  const { commentSent, unaBleToSendComment } = t();
+  const { commentSent, unaBleToSendComment } = t([
+    "commentSent", "unaBleToSendComment"]);
 
   const queryClient = useQueryClient();
 
@@ -125,7 +128,8 @@ export function useSubmitReplyMutation(commentId: string, firstLevelCommentId: s
 
 export function useDeleteCommentMutation() {
   const { toast } = useToast();
-  const { commentDeleted, unableToDeleteComment } = t();
+  const { commentDeleted, unableToDeleteComment } = t([
+    "commentDeleted", "unableToDeleteComment"]);
   const pathname = usePathname();
   const { startNavigation: navigate } = useProgress();
 
@@ -171,7 +175,8 @@ export function useDeleteCommentMutation() {
 }
 export function useDeleteReplyMutation() {
   const { toast } = useToast();
-  const { commentDeleted, unableToDeleteComment } = t();
+  const { commentDeleted, unableToDeleteComment } = t([
+    "commentDeleted", "unableToDeleteComment"]);
   const pathname = usePathname();
   const { startNavigation: navigate } = useProgress();
 

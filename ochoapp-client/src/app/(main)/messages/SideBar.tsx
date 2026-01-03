@@ -49,7 +49,7 @@ export default function SideBar({
   const { activeRoomId, setActiveRoomId } = useActiveRoom();
   const pathname = usePathname();
   const { startNavigation: navigate } = useProgress();
-  const { chats, startNewChat, noChat, dataError, search } = t();
+  const { chats, startNewChat, noChat, dataError, search, noMessageFoundFor } = t(['chats', 'startNewChat', 'noChat', 'dataError', 'search', 'noMessageFoundFor']);
 
   // --- SOCKET & STATE ---
   const { socket, isConnected } = useSocket();
@@ -374,7 +374,7 @@ export default function SideBar({
             <div className="flex w-full flex-1 select-none items-center justify-center px-3 py-8 text-center italic text-muted-foreground">
               <div className="flex flex-col items-center gap-2">
                 <Search size={40} className="opacity-50" />
-                <p>Aucun résultat trouvé pour "{searchQuery}"</p>
+                <p>{noMessageFoundFor.replace('[searchQuery]', searchQuery)}</p>
               </div>
             </div>
           )}

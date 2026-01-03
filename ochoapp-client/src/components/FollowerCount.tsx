@@ -15,7 +15,10 @@ export default function FollowerCount({
   initialState,
 }: FollowerCountProps) {
   const { data } = useFollowerInfo(userId, initialState);
-  const {follower, followers} = t()
+  const {follower, followers} = t([
+    "follower",
+    "followers",
+  ])
 
   return (
     <span>

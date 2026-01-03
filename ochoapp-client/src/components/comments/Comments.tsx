@@ -35,7 +35,9 @@ export default function Comments({ post, onClose }: CommentsProps) {
     dataError,
     comments: commentsText,
     comment: commentText,
-  } = t();
+  } = t(
+    [  "showPreviousComments", "noComments", "noLongerAvailablecomment", "dataError", "comments", "comment"]
+  );
 
   const searchParams = useSearchParams();
   const comment = searchParams.get("comment");

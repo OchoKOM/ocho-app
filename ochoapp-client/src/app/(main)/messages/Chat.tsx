@@ -70,7 +70,7 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
   const [sentMessages, setSentMessages] = useState<SentMessageState[]>([]);
   const [newMessages, setNewMessages] = useState<MessageData[]>([]);
 
-  const { unableToLoadChat, noMessage, dataError, search } = t();
+  const { unableToLoadChat, noMessage, dataError, search } = t(['unableToLoadChat', 'noMessage', 'dataError', 'search']);
   const queryClient = useQueryClient();
   const { user: loggedUser } = useSession();
 
@@ -595,7 +595,7 @@ export function MessageForm({
   onTypingStart,
   onTypingStop,
 }: MessageFormProps) {
-  const { typeMessage } = t();
+  const { typeMessage } = t(['typeMessage']);
   const [input, setInput] = useState("");
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 

@@ -22,7 +22,7 @@ export default function MenuBar({ className }: MenuBarProps) {
   const { setSearchActive } = useSearch();
   const { currentNavigation } = useNavigation();
 
-  const { home, explore, search, settings, menu }: VocabularyObject = t();
+  const { home, explore, search, settings, menu }: VocabularyObject = t(['home', 'explore', 'search', 'settings', 'menu']);
   const pathname = usePathname();
   const isMessagesPage = pathname.startsWith("/messages");
 

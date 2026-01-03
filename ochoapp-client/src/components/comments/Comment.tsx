@@ -219,7 +219,7 @@ export function AuthorReplyIcon({ avatarUrl, userId }: { avatarUrl: string | nul
   );
 }
 export function AuthorLikeIcon({ avatarUrl, userId }: { avatarUrl: string | null; userId: string }) {
-  const { likedByAuthor } = t();
+  const likedByAuthor = t("likedByAuthor");
   const text = <p>{likedByAuthor}</p>;
   return (
     <TooltipProvider>
@@ -262,7 +262,9 @@ export function ShowRepliesButton({
   replies: number;
   onClick: () => void;
 }) {
-  const { replies: repliesText, reply: replyText } = t();
+  const { replies: repliesText, reply: replyText } = t(
+    ["replies", "reply"],
+  );
   if (!replies) {
     return null;
   }

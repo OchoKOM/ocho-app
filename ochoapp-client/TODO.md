@@ -1,7 +1,23 @@
-# TODO: Fix Next.js Build Errors in Route Handlers
+# Translation Implementation Plan
 
-## Steps to Complete
-- [x] Update the DELETE function in `src/app/api/android/comments/[commentId]/route.ts` to make `params` asynchronous as required by Next.js 15
-- [x] Update the GET function in `src/app/api/android/posts/[postId]/comments/route.ts` to make `params` asynchronous as required by Next.js 15
-- [x] Update the POST function in `src/app/api/android/posts/[postId]/comments/send/route.ts` to make `params` asynchronous as required by Next.js 15
-- [ ] Run the Next.js build command to verify all fixes resolve the type errors
+## 1. Identify and List Untranslated Strings ✅
+- Scan all TSX files for plain text strings not using t() or getTranslation
+- Exclude privacy and terms of use pages
+- List all untranslated lines in translations_needed.md with file paths and line numbers
+
+## 2. Add Translations to Vocabulary ✅
+- Add new keys to english and french objects in src/lib/vocabulary.ts
+- Ensure translations are accurate and context-appropriate
+
+## 3. Apply t() in Frontend Files ✅
+- Update each identified file to use t() function for the untranslated strings
+- Test that translations work correctly
+
+## 4. Apply getTranslation in Backend (if needed)
+- Check API routes and server-side code for untranslated strings
+- Apply getTranslation where applicable
+
+## 5. Verification
+- Test the application in both English and French
+- Ensure no hardcoded strings remain
+- Update translations_needed.md to mark completed items

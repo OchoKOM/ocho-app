@@ -15,7 +15,7 @@ import { Frown, Loader2, SmilePlus } from "lucide-react";
 export default function FollowingFeed() {
   const viewedPosts: string[] = [];
 
-  const { noPostOnFollowing, dataError }: VocabularyObject = t();
+  const { noPostOnFollowing, dataError }: VocabularyObject = t(['noPostOnFollowing', 'dataError']);
 
   const {
     data,

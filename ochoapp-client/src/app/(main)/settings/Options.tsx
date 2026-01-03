@@ -56,7 +56,24 @@ export default function Options({
     system,
     light,
     dark,
-  } = t();
+  } = t([
+    "account",
+    "privacy",
+    "display",
+    "language",
+    "logout",
+    "birthday",
+    "password",
+    "username",
+    "exportMyData",
+    "disableMyAccount",
+    "deleteMyAccount",
+    "onlineStatus",
+    "system",
+    "light",
+    "dark",
+  ]
+  );
 
   const queryClient = useQueryClient();
 

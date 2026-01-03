@@ -25,7 +25,9 @@ export default function DeleteCommentDialog({
 }: DeleteCommentDialogProps) {
   const mutation = useDeleteCommentMutation();
   const replyMutation = useDeleteReplyMutation();
-  const { commentDeleteConfirmPrompt, cancel, delete: deleteText } = t();
+  const { commentDeleteConfirmPrompt, cancel, delete: deleteText } = t(
+    ["commentDeleteConfirmPrompt", "cancel", "delete"]
+  );
 
   function handleOpenChange(open: boolean) {
     if (!open || !mutation.isPending || !replyMutation.isPending) {

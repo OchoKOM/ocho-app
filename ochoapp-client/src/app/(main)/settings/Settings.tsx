@@ -36,7 +36,7 @@ export default function Settings({
   const [currentDialog, setCurrentDialog] = useState<JSX.Element | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTitle, setDialogTitle] = useState<string | null>(null);
-  const { viewProfile } = t();
+  const viewProfile = t("viewProfile");
 
   if (!user) return null;
   return (

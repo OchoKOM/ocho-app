@@ -9,7 +9,7 @@ export default function Support() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
   const [isSameOrigin, setIsSameOrigin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { unsupportedEnv } = t();
+  const { unsupportedEnv } = t(['unsupportedEnv']);
 
   useEffect(() => {
     setIsLoading(false);

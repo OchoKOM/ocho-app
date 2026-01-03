@@ -52,7 +52,15 @@ export default function EditProfileDialog({
     bio,
     tellUsAboutYou,
     save,
-  } = t();
+  } = t([
+    "editProfile",
+    "profilePicture",
+    "fullName",
+    "yourFullName",
+    "bio",
+    "tellUsAboutYou",
+    "save",
+  ]);
   const form = useForm<UpdateUserProfileValues>({
     resolver: zodResolver(updateUserProfileSchema),
     defaultValues: {
@@ -153,7 +161,13 @@ interface AvatarInputProps {
 function AvatarInput({ src, onImageCropped }: AvatarInputProps) {
   const [imageToCrop, setImageToCrop] = useState<File>();
 
-  const {profilePicture, clickToSelectImage, removePic } = t()
+  const {profilePicture, clickToSelectImage, removePic } = t(
+    [
+      "profilePicture",
+      "clickToSelectImage",
+      "removePic",
+    ]
+  )
 
   
   const mutation = useDeleteAvatarMutation();

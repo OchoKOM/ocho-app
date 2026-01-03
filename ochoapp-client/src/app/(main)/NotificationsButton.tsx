@@ -21,7 +21,7 @@ export default function NotificationsButton({
   className,
   ...props
 }: NotificationsButtonProps) {
-  const { activity, activityCenter, notifications } = t();
+  const { activity, activityCenter, notifications } = t(['activity', 'activityCenter', 'notifications']);
   const pathname = usePathname();
   const isMessagesPage = pathname.startsWith("/messages");
 

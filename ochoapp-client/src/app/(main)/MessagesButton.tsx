@@ -28,7 +28,7 @@ export default function MessagesButton({
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
 
-  const { messages } = t();
+  const { messages } = t(['messages']);
 
   // 2. Requête pour obtenir le nombre de rooms non lues
   const { data } = useQuery({

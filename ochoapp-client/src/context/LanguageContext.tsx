@@ -71,22 +71,48 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({
 export const useLanguage = () => useContext(LanguageContext);
 
 // Fonction pour récupérer une ou plusieurs traductions côté client
-export const t = (
-  keys: VocabularyKey | VocabularyKey[] = allVocabularyKeys,
-): VocabularyObject => {
+export function t(): VocabularyObject;
+export function t(keys: VocabularyKey): string;
+export function t(keys: VocabularyKey[]): Record<VocabularyKey, string>;
+export function t(
+  keys?: VocabularyKey | VocabularyKey[],
+  replacements?: Record<string, string | number>,
+): VocabularyObject | string | Record<VocabularyKey, string> {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const { language } = useLanguage();
+
+  if (keys === undefined) {
+    // Return full object
+    return allVocabularyKeys.reduce(
+      (acc, key) => {
+        acc[key] = vocabulary[language][key];
+        return acc;
+      },
+      {} as VocabularyObject,
+    );
+  }
+
+  // Si replacements est fourni, traiter comme interpolation pour une clé unique
+  if (replacements && !Array.isArray(keys)) {
+    let translation = vocabulary[language][keys];
+    Object.entries(replacements).forEach(([key, value]) => {
+      translation = translation.replace(new RegExp(`\\[${key}\\]`, 'g'), String(value));
+      translation = translation.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value));
+    });
+    return translation;
+  }
 
   // Convertir une clé unique en tableau pour simplifier le traitement
   const keysArray = Array.isArray(keys) ? keys : [keys];
 
   // Construire un objet avec les traductions demandées
-  return keysArray.reduce(
+  const result = keysArray.reduce(
     (acc, key) => {
       acc[key] = vocabulary[language][key];
-
       return acc;
     },
     {} as Record<string, string>,
   );
-};
+
+  return Array.isArray(keys) ? result : result[keys];
+}

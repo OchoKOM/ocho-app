@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     template: "%s - OchoApp",
     default: "OchoApp"
   },
-  description: "The social media app for power nerd",
+  description: "The social media app for power nerd", // TODO: Translate this
 };
 
 export default function RootLayout({

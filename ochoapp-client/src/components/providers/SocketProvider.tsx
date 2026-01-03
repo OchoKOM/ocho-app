@@ -10,10 +10,11 @@ import React, {
 } from "react";
 import { io, Socket } from "socket.io-client";
 import { useSession } from "@/app/(main)/SessionProvider";
-import { toast } from "../ui/use-toast"; 
+import { toast } from "../ui/use-toast";
 import { Loader2, Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/context/LanguageContext";
+import kyInstance from "@/lib/ky";
 
 // Définition des types pour le contexte
 interface SocketContextType {
@@ -61,16 +62,17 @@ export default function SocketProvider({
   children: React.ReactNode;
 }) {
   const { user, token } = useSession();
-  
+
   // Ref pour stocker l'instance du socket
   const socketRef = useRef<Socket | null>(null);
-  
+
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
   const [onlineStatus, setOnlineStatus] = useState<
     Record<string, { isOnline: boolean; lastSeen?: Date }>
   >({});
+  const [isServerTriggered, setIsServerTriggered] = useState(false);
 
   // Fonction stable pour émettre des événements
   const checkUserStatus = useCallback((targetUserId: string) => {
@@ -100,6 +102,19 @@ export default function SocketProvider({
 
     // 3. Initialisation du Socket
     console.log("🔄 Initialisation d'une nouvelle connexion Socket...");
+    !isServerTriggered &&
+      kyInstance
+        .post(
+          process.env.NEXT_PUBLIC_CHAT_SERVER_URL || "http://localhost:5000",
+        )
+        .json<{ message: string }>()
+        .then((res) => console.log(res.message))
+        .catch((err) => {
+          // the server is triggered and wil start in a moment
+          console.log(err);
+          console.log("The server is triggered and wil start in a moment");
+        })
+        .finally(() => setIsServerTriggered(true));
     const socketInstance = io(
       process.env.NEXT_PUBLIC_CHAT_SERVER_URL || "http://localhost:5000",
       {
@@ -108,22 +123,22 @@ export default function SocketProvider({
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
-        transports: ["websocket", "polling"], 
+        transports: ["websocket", "polling"],
         closeOnBeforeunload: true,
         timeout: 5000,
-      }
+      },
     );
 
     socketRef.current = socketInstance;
 
     // 4. Gestionnaires d'événements
-    
+
     const onConnect = () => {
       if (isComponentUnmounted) return; // Sécurité : ne pas mettre à jour l'état si démonté
       console.log("🟢 WS Connecté :", socketInstance.id);
       setIsConnected(true);
       setIsConnecting(false);
-      
+
       // On masque le toast de statut après un délai
       setTimeout(() => {
         if (!isComponentUnmounted) setShowStatus(false);
@@ -132,16 +147,16 @@ export default function SocketProvider({
 
     const onDisconnect = (reason: string) => {
       if (isComponentUnmounted) return; // CRUCIAL : Ne rien faire si le composant est en train de se détruire
-      
+
       console.log("🔴 WS Déconnecté. Raison:", reason);
       setIsConnected(false);
-      
+
       const isServerDisconnect = reason === "io server disconnect";
       const isTransportError = reason === "transport close";
 
       if (isServerDisconnect || isTransportError) {
-         setShowStatus(true);
-         setIsConnecting(true);
+        setShowStatus(true);
+        setIsConnecting(true);
       }
     };
 
@@ -156,9 +171,12 @@ export default function SocketProvider({
       }
     };
 
-
     // Événements Métiers
-    const onUserStatusChange = (data: { userId: string; isOnline: boolean; lastSeen?: string }) => {
+    const onUserStatusChange = (data: {
+      userId: string;
+      isOnline: boolean;
+      lastSeen?: string;
+    }) => {
       if (isComponentUnmounted) return;
       setOnlineStatus((prev) => ({
         ...prev,
@@ -178,20 +196,20 @@ export default function SocketProvider({
 
     // Événements Système (Reconnexion)
     const onReconnectAttempt = () => {
-        if (isComponentUnmounted) return;
-        console.log("🔄 Tentative de reconnexion auto...");
-        setIsConnecting(true);
-        setShowStatus(true);
+      if (isComponentUnmounted) return;
+      console.log("🔄 Tentative de reconnexion auto...");
+      setIsConnecting(true);
+      setShowStatus(true);
     };
 
     const onReconnect = () => {
-        if (isComponentUnmounted) return;
-        console.log("✅ Reconnecté auto !");
-        setIsConnected(true);
-        setIsConnecting(false);
-        setTimeout(() => {
-            if (!isComponentUnmounted) setShowStatus(false);
-        }, 3000);
+      if (isComponentUnmounted) return;
+      console.log("✅ Reconnecté auto !");
+      setIsConnected(true);
+      setIsConnecting(false);
+      setTimeout(() => {
+        if (!isComponentUnmounted) setShowStatus(false);
+      }, 3000);
     };
 
     // Attachement des écouteurs
@@ -200,15 +218,19 @@ export default function SocketProvider({
     socketInstance.on("connect_error", onConnectError);
     socketInstance.on("user_status_change", onUserStatusChange);
     socketInstance.on("new_room_created", onNewRoomCreated);
-    
+
     // Écouteurs sur le manager (io)
     socketInstance.io.on("reconnect_attempt", onReconnectAttempt);
     socketInstance.io.on("reconnect", onReconnect);
 
     // 5. Nettoyage (CLEANUP)
     return () => {
-      console.log("🧹 Nettoyage complet du socket (ID:", socketInstance.id, ")");
-      
+      console.log(
+        "🧹 Nettoyage complet du socket (ID:",
+        socketInstance.id,
+        ")",
+      );
+
       // 1. On lève le drapeau pour bloquer toute logique dans les écouteurs ci-dessus
       isComponentUnmounted = true;
 
@@ -225,8 +247,7 @@ export default function SocketProvider({
         socketRef.current = null;
       }
     };
-  }, [user, token]); 
-  
+  }, [user, token]);
 
   return (
     <SocketContext.Provider
@@ -240,28 +261,26 @@ export default function SocketProvider({
     >
       <div
         className={cn(
-          "fixed bottom-4 max-sm:bottom-20 right-4 z-50 transform transition-all duration-500 ease-in-out pointer-events-none",
-          showStatus
-            ? "translate-y-0 opacity-100"
-            : "translate-y-10 opacity-0"
+          "pointer-events-none fixed bottom-4 right-4 z-50 transform transition-all duration-500 ease-in-out max-sm:bottom-20",
+          showStatus ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0",
         )}
       >
         {isConnected ? (
-          <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-600 dark:text-emerald-400 dark:bg-emerald-900 dark:border-emerald-800 shadow-md">
+          <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-600 shadow-md dark:border-emerald-800 dark:bg-emerald-900 dark:text-emerald-400">
             <Wifi className="h-4 w-4" />
             <span className="text-xs font-semibold">{t().connected}</span>
           </div>
         ) : isConnecting ? (
-          <div className="flex animate-pulse items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-600 dark:text-amber-400 dark:bg-amber-900 dark:border-amber-800 shadow-md">
+          <div className="flex animate-pulse items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-600 shadow-md dark:border-amber-800 dark:bg-amber-900 dark:text-amber-400">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-xs font-semibold">
-             {t().reconnecting}
-            </span>
+            <span className="text-xs font-semibold">{t().reconnecting}</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-red-600 dark:text-red-400 dark:bg-red-900 dark:border-red-800 shadow-md">
+          <div className="flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-red-600 shadow-md dark:border-red-800 dark:bg-red-900 dark:text-red-400">
             <WifiOff className="h-4 w-4" />
-            <span className="text-xs font-semibold">{t().realtimeServerOffline}</span>
+            <span className="text-xs font-semibold">
+              {t().realtimeServerOffline}
+            </span>
           </div>
         )}
       </div>

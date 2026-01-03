@@ -437,7 +437,7 @@ export function ReactionDetailsPopover({
                     </div>
                     <div className="flex flex-col">
                       <span className="text-sm font-semibold truncate max-w-[140px]">
-                        {isMe ? t().you : user.displayName}
+                        {isMe ? t("you") : user.displayName}
                       </span>
                       <span className="text-[10px] text-muted-foreground">@{user.username}</span>
                     </div>

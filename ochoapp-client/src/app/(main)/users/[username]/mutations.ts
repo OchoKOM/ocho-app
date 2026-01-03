@@ -80,7 +80,10 @@ export function useUpdateProfileMutation() {
   const { startUpload: startAvatarUpload } =
     useUploadThing("avatar");
 
-  const { profileUpdated, profileUpdateError } = t();
+  const { profileUpdated, profileUpdateError } = t([
+    "profileUpdated",
+    "profileUpdateError",
+  ]);
 
   async function upload(file: File) {
     // const uploadResult = null;
@@ -160,7 +163,9 @@ export function useUpdateProfileMutation() {
 export function useDeleteAvatarMutation() {
   const { toast } = useToast();
 
-  const { profilePicDeleted, profilePicDeleteError } = t();
+  const { profilePicDeleted, profilePicDeleteError } = t(
+    ["profilePicDeleted", "profilePicDeleteError"],
+  );
 
   const { startNavigation: navigate } = useProgress();
   const queryClient = useQueryClient();
@@ -227,7 +232,9 @@ export function useUpdateGroupChatMutation({
     useUploadThing("group-chat-avatar");
   const { user } = useSession();
 
-  const { groupUpdated, groupUpdateError } = t();
+  const { groupUpdated, groupUpdateError } = t(
+    ["groupUpdated", "groupUpdateError"],
+  );
 
   const { startNavigation: navigate } = useProgress();
   const queryClient = useQueryClient();
@@ -322,7 +329,10 @@ export function useUpdateGroupChatMutation({
 export function useDeleteGroupChatAvatarMutation() {
   const { toast } = useToast();
   const { user } = useSession();
-  const { groupIconDeleted, groupIconDeleteError } = t();
+  const { groupIconDeleted, groupIconDeleteError } = t([
+    "groupIconDeleted",
+    "groupIconDeleteError",
+  ]);
 
   const { startNavigation: navigate } = useProgress();
   const queryClient = useQueryClient();

@@ -140,13 +140,6 @@ export default function RoomPreview({
     };
   }, [socket, isConnected, room.id, loggedinUser?.id]);
 
-  const typingText = !!typing.typingUsers.length
-    ? typing.typingUsers.length === 1
-      ? `${typing.typingUsers[0].displayName.split(" ")[0] || "Utilisateur OchoApp"} écrit...`
-      : typing.typingUsers.length === 2
-        ? `${typing.typingUsers[0].displayName.split(" ")[0] || "Utilisateur OchoApp"} et ${typing.typingUsers[1].displayName.split(" ")[0]} écrivent...`
-        : `${typing.typingUsers[0].displayName.split(" ")[0] || "Utilisateur OchoApp"}, ${typing.typingUsers[1].displayName.split(" ")[0]} et ${typing.typingUsers.length - 2 == 1 ? typing.typingUsers[2].displayName.split(" ")[0] : `${typing.typingUsers.length - 2} autres`} écrivent...`
-    : "";
   const {
     appUser,
     groupChat,
@@ -175,7 +168,19 @@ export default function RoomPreview({
     canNoLongerInteract,
     noMessage,
     deletedChat,
-  } = t();
+    savedMessages,
+    userTyping,
+    andOthersTyping,
+    multipleTyping,
+  } = t(['appUser', 'groupChat', 'you', 'newMember', 'youAddedMember', 'addedYou', 'addedMember', 'memberLeft', 'youRemovedMember', 'removedYou', 'removedMember', 'memberBanned', 'youBannedMember', 'bannedYou', 'bannedMember', 'youCreatedGroup', 'createdGroup', 'canChatWithYou', 'youReactedToYourMessage', 'youReactedToMessage', 'reactedToMessage', 'reactedMemberMessage', 'messageYourself', 'noPreview', 'canNoLongerInteract', 'noMessage', 'deletedChat', 'savedMessages', 'userTyping', 'andOthersTyping', 'multipleTyping']);
+
+  const typingText = !!typing.typingUsers.length
+    ? typing.typingUsers.length === 1
+      ? userTyping
+      : typing.typingUsers.length === 2
+        ? andOthersTyping.replace('[count]', '1')
+        : multipleTyping.replace('[names]', typing.typingUsers[0].displayName.split(" ")[0] || appUser).replace('[name]', typing.typingUsers[1].displayName.split(" ")[0]).replace('[count]', (typing.typingUsers.length - 2).toString())
+    : "";
   const { startNavigation: navigate } = useProgress();
 
   const queryKey: QueryKey = ["room", "unread", room.id];
@@ -200,11 +205,13 @@ export default function RoomPreview({
         ...room.members.find((member) => member.userId === loggedinUser.id)
           ?.user,
         ...loggedinUser,
-        name: t().savedMessages,
+        name: savedMessages,
+        dissplayName: savedMessages,
       }
     : {
         ...loggedinUser,
-        name: t().savedMessages,
+        name: savedMessages,
+        displayName: savedMessages,
     };
 
   const otherUser: UserData | null = isSaved
@@ -244,6 +251,9 @@ export default function RoomPreview({
   const currentMember = room.members.find(
     (member) => member.userId === loggedinUser.id,
   );
+
+  
+
 
   const otherUserFirstName = otherUser?.displayName.split(" ")[0] || appUser;
   const senderFirstName =

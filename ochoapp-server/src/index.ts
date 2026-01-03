@@ -36,7 +36,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.get("/", (req, res) => {
-  res.send("Server ready");
+  res.json({message:"Hello from the server"});
 });
 
 app.post("/api/auth/session", validateSession);

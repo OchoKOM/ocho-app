@@ -64,7 +64,7 @@ export default function NewChat({
     unableToCreateGroup,
     mustSelectGroupUser,
     dataError
-  } = t();
+  } = t(['newChat', 'newGroup', 'startNewChat', 'you', 'wait', 'create', 'cancel', 'messageYourself', 'friends', 'followers', 'followings', 'suggestions', 'groupNameOptional', 'waitEndOfOperation', 'unableToSendMessage', 'unableToCreateGroup', 'mustSelectGroupUser', 'dataError']);
 
   const inputRef = useRef<HTMLInputElement>(null);
 

@@ -31,7 +31,7 @@ export default function SearchResults({
   filter: initialFilter = "posts",
 }: SearchResultsProps) {
   const { startNavigation: navigate } = useProgress();
-  const { posts: postsText, noSearchResultFor, tryNewSearch, dataError } = t();
+  const { posts: postsText, noSearchResultFor, tryNewSearch, dataError, users, verifiedUsers, friends, followers, followings } = t(['posts', 'noSearchResultFor', 'tryNewSearch', 'dataError', 'users', 'verifiedUsers', 'friends', 'followers', 'followings']);
   const { user: loggedInUser } = useSession();
   const [filter, setFilter] = useState<SearchFilter>(initialFilter);
 
@@ -101,11 +101,11 @@ export default function SearchResults({
     >
       <TabsList scrollable variant="soft" className="py-4">
         <TabsTrigger value="posts">{postsText}</TabsTrigger>
-        <TabsTrigger value="users">{t().users}</TabsTrigger>
-        <TabsTrigger value="verified-users">{t().verifiedUsers}</TabsTrigger>
-        <TabsTrigger value="friend">{t().friends}</TabsTrigger>
-        <TabsTrigger value="followers">{t().followers}</TabsTrigger>
-        <TabsTrigger value="following">{t().followings}</TabsTrigger>
+        <TabsTrigger value="users">{users}</TabsTrigger>
+        <TabsTrigger value="verified-users">{verifiedUsers}</TabsTrigger>
+        <TabsTrigger value="friend">{friends}</TabsTrigger>
+        <TabsTrigger value="followers">{followers}</TabsTrigger>
+        <TabsTrigger value="following">{followings}</TabsTrigger>
       </TabsList>
 
       {/* Onglet Posts */}
