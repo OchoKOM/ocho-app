@@ -86,9 +86,10 @@ export default function RoomPreview({
         // Mise à jour optimiste du cache React Query
         queryClient.setQueryData<NotificationCountInfo>(
           ["room", "unread", room.id],
-          (old) => ({
-            unreadCount: (old?.unreadCount || 0) + 1,
-          }),
+          (old) => {
+             const currentCount = old?.unreadCount || 0;
+             return { unreadCount: currentCount + 1 };
+          }
         );
       }
     };
@@ -230,7 +231,7 @@ export default function RoomPreview({
         .get(`/api/rooms/${room.id}/unread-count`)
         .json<NotificationCountInfo>(),
     initialData: { unreadCount: 0 },
-    throwOnError: false,
+    staleTime: Infinity, 
   });
 
   const { unreadCount } = data;
