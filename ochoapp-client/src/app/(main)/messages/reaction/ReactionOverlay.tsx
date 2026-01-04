@@ -297,7 +297,7 @@ export function ReactionList ({
   const overflowCount = sortedReactions.length - 2;
 
   return (
-    <div className="flex flex-wrap gap-1 mt-1 z-10">
+    <div className="flex flex-wrap gap-1 mt-1 z-20">
       {visibleReactions.map((reaction, index) => {
         const hasReacted = reaction.users.some(user => user.id === currentUserId);
         return(

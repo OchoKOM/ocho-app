@@ -98,7 +98,7 @@ export function DeletionPlaceholder({
   const secondsLeft = Math.ceil(timeLeft / 1000);
 
   return (
-    <div className="relative flex w-full justify-end">
+    <div className="relative flex w-full justify-end z-20">
       <div className="relative flex w-fit select-none flex-col items-end">
         {/* Conteneur principal avec un border-radius maximal (rounded-full) */}
         <div className="relative flex w-fit items-center justify-between gap-2 overflow-hidden rounded-full border border-destructive/40 bg-destructive/5 p-1.5 pe-4 text-destructive shadow-sm backdrop-blur-sm">
