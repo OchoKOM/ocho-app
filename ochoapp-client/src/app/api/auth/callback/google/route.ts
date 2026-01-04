@@ -49,6 +49,13 @@ export async function GET(req: NextRequest) {
                 sessionCookie.attributes
             )
 
+            // Set custom cookie indicating third-party auth
+            cookieCall.set("third_party_auth", "google", {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "lax",
+                maxAge: 60 * 60 * 24 * 30, // 30 days
+            });
 
             return new Response(null, {
                 status: 302,
@@ -115,6 +122,14 @@ export async function GET(req: NextRequest) {
             sessionCookie.value,
             sessionCookie.attributes,
         );
+
+        // Set custom cookie indicating third-party auth
+        cookieCall.set("third_party_auth", "google", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 60 * 60 * 24 * 30, // 30 days
+        });
 
         return new Response(null, {
             status: 302,

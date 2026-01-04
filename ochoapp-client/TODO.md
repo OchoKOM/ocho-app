@@ -1,23 +1,13 @@
-# Translation Implementation Plan
+# TODO: Third-Party Auth Modifications
 
-## 1. Identify and List Untranslated Strings ✅
-- Scan all TSX files for plain text strings not using t() or getTranslation
-- Exclude privacy and terms of use pages
-- List all untranslated lines in translations_needed.md with file paths and line numbers
-
-## 2. Add Translations to Vocabulary ✅
-- Add new keys to english and french objects in src/lib/vocabulary.ts
-- Ensure translations are accurate and context-appropriate
-
-## 3. Apply t() in Frontend Files ✅
-- Update each identified file to use t() function for the untranslated strings
-- Test that translations work correctly
-
-## 4. Apply getTranslation in Backend (if needed)
-- Check API routes and server-side code for untranslated strings
-- Apply getTranslation where applicable
-
-## 5. Verification
-- Test the application in both English and French
-- Ensure no hardcoded strings remain
-- Update translations_needed.md to mark completed items
+## Pending Tasks
+- [x] Modify OAuth callback routes to set custom cookies indicating third-party auth
+  - [x] Google callback: src/app/api/auth/callback/google/route.ts
+  - [x] Facebook callback: src/app/api/auth/callback/facebook/route.ts
+  - [x] GitHub callback: src/app/api/auth/callback/github/route.ts
+- [x] Update users/update route to conditionally require current password based on passwordHash existence
+  - [x] src/app/api/users/update/route.ts
+- [x] Modify PasswordDialog to hide current password field for users without passwords
+  - [x] src/app/(main)/settings/PasswordDialog.tsx
+- [ ] Test OAuth flows, password updates, and data encryption
+- [ ] Ensure security: secure cookies, proper encryption

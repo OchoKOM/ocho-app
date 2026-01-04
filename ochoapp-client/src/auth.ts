@@ -44,6 +44,7 @@ export const lucia = new Lucia(adapter, {
       verified,
       createdAt: databaseUserAttributes.createdAt,
       lastSeen: databaseUserAttributes.lastSeen,
+      lastUsernameChange: databaseUserAttributes.lastUsernameChange,
     };
   },
 });
@@ -80,6 +81,7 @@ interface DatabaseUserAttributes {
   }[];
   createdAt: Date;
   lastSeen: Date;
+  lastUsernameChange: Date | null | undefined;
 }
 
 export const google = new Google(

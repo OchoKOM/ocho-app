@@ -19,7 +19,7 @@ export async function GET(
   try {
     const url = new URL(req.url);
     const { user } = await validateRequest();
-
+    
     if (!user) {
       return Response.json({ error: "Action non autorisée" }, { status: 401 });
     }
@@ -63,13 +63,13 @@ export async function GET(
           groupAvatarUrl: null,
           privilege: "MANAGE",
           members: [
-            {
-              user,
-              userId,
-              type: "OWNER",
-              joinedAt: user.createdAt,
-              leftAt: null,
-            },
+          {
+            user,
+            userId,
+            type: "OWNER",
+            joinedAt: user.createdAt,
+            leftAt: null,
+          },
           ],
           maxMembers: 300,
           messages: [existingSavedMsg],
@@ -96,7 +96,7 @@ export async function GET(
         privilege: "MANAGE",
         members: [
           {
-            user,
+            user ,
             userId,
             type: "OWNER",
             joinedAt: user.createdAt,

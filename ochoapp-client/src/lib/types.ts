@@ -42,9 +42,9 @@ export function getUserDataSelect(
     displayName: true,
     avatarUrl: true,
     bio: true,
-    createdAt: true,
-    lastSeen: true,
-    verified: {
+            createdAt: true,
+            lastSeen: true,
+            verified: {
       where: {
         user: {
           username,

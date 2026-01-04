@@ -26,6 +26,11 @@ import { t, useLanguage } from "@/context/LanguageContext";
 import { Language } from "@/lib/vocabulary";
 import { useProgress } from "@/context/ProgressContext";
 import BirthdayDialog from "./BirthdayDialog";
+import PasswordDialog from "./PasswordDialog";
+import UsernameDialog from "./UsernameDialog";
+import ExportDataDialog from "./ExportDataDialog";
+import DisableAccountDialog from "./DisableAccountDialog";
+import DeleteAccountDialog from "./DeleteAccountDialog";
 
 interface OptionsProps {
   setting?: string | null;
@@ -95,6 +100,7 @@ export default function Options({
         icon: <LockKeyholeIcon size={24} />,
         action: "default",
         onClick: (value: string) => console.log(value),
+        dialogElement: <PasswordDialog />,
       },
       {
         value: "username",
@@ -102,6 +108,7 @@ export default function Options({
         icon: <AtSign size={24} />,
         action: "default",
         onClick: (value: string) => console.log(value),
+        dialogElement: <UsernameDialog />,
       },
       {
         value: "export",
@@ -109,13 +116,15 @@ export default function Options({
         icon: <CarFront size={24} />,
         action: "default",
         onClick: (value: string) => console.log(value),
+        dialogElement: <ExportDataDialog />,
       },
       {
-        value: "disable",
+        value: "hibernate",
         label: disableMyAccount,
         icon: <Snowflake size={24} />,
         action: "destructive",
         onClick: (value: string) => console.log(value),
+        dialogElement: <DisableAccountDialog />,
       },
       {
         value: "delete",
@@ -123,11 +132,12 @@ export default function Options({
         icon: <Trash2 size={24} />,
         action: "destructive",
         onClick: (value: string) => console.log(value),
+        dialogElement: <DeleteAccountDialog />,
       },
     ],
     privacy: [
       {
-        value: "online",
+        value: "onlineStatus",
         label: onlineStatus,
         icon: <CirclePower size={24} />,
         action: "default",

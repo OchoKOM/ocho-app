@@ -43,6 +43,14 @@ export async function GET(req: NextRequest) {
             const sessionCookie = lucia.createSessionCookie(session.id);
             cookieCall.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
 
+            // Set custom cookie indicating third-party auth
+            cookieCall.set("third_party_auth", "facebook", {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "lax",
+                maxAge: 60 * 60 * 24 * 30, // 30 days
+            });
+
             return new Response(null, {
                 status: 302,
                 headers: {
@@ -121,6 +129,14 @@ export async function GET(req: NextRequest) {
         const session = await lucia.createSession(userId, {});
         const sessionCookie = lucia.createSessionCookie(session.id);
         cookieCall.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
+
+        // Set custom cookie indicating third-party auth
+        cookieCall.set("third_party_auth", "facebook", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 60 * 60 * 24 * 30, // 30 days
+        });
 
         return new Response(null, {
             status: 302,

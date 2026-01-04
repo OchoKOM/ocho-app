@@ -153,9 +153,29 @@ export const english = {
   month: "Month",
   year: "Year",
   password: "Password",
+  currentPassword: "Current Password",
+  newPassword: "New Password",
+  confirmPassword: "Confirm Password",
+  changePassword: "Change Password",
+  passwordRequirements: "Password must be at least 8 characters long",
+  passwordChanged: "Password changed successfully",
+  passwordChangeError: "Failed to change password",
+  passwordMismatch: "Passwords do not match",
+  passwordTooWeak: "Password is too weak",
+  passwordSecurityNote: "For your security, please choose a strong password",
+  updating: "Updating...",
   username: "Username",
   exportMyData: "Export my data",
+  exportDataTitle: "Export Data",
+  exportDataDescription: "Download a copy of your data",
+  exportDataWarning: "This may take a few minutes. Please do not close this page.",
+  exportDataSuccess: "Your data has been exported successfully.",
+  exportDataError: "Failed to export data. Please try again.",
+  exportData: "Export Data",
+  exporting: "Exporting...",
   disableMyAccount: "Disable my account",
+  disable: "Disable",
+  disabling: "Disabling...",
   deleteMyAccount: "Delete my account",
   onlineStatus: "Online status",
   unableToLoadChat: 'Unable to load chat "[name]"',
@@ -331,6 +351,23 @@ export const english = {
   activitiesWillShowHere: "Your activities will be displayed here.",
   unauthorizedAction: "Unauthorized action",
   internalServerError: "Internal server error",
+  currentUsername: "Current Username",
+  newUsername: "New Username",
+  changeUsername: "Change Username",
+  usernameRequirements: "Username must be 3-20 characters long, containing only letters, numbers, and underscores.",
+  usernameChanged: "Username changed successfully",
+  usernameChangeError: "Failed to change username",
+  usernameTaken: "Username is already taken",
+  usernameTooFrequent: "Username changes are limited to once per month",
+  usernameChangeLimit: "You can change your username again in [days] days",
+  deleteAccountWarning: "This action is permanent and cannot be undone. All your data will be deleted.",
+  accountDeleted: "Your account has been deleted successfully.",
+  accountDeleteError: "Failed to delete account. Please try again.",
+  passwordRequired: "Password is required",
+  enterCurrentPassword: "Enter Current Password",
+  disableAccountWarning: "Your account will be disabled. You can reactivate it by contacting support.",
+  accountDisabled: "Your account has been disabled successfully.",
+  accountDisableError: "Failed to disable account. Please try again.",
 };
 export type Vocabulary = typeof english;
 export const french: Vocabulary = {
@@ -494,9 +531,29 @@ export const french: Vocabulary = {
   month: "Mois",
   year: "Année",
   password: "Mot de passe",
+  currentPassword: "Mot de passe actuel",
+  newPassword: "Nouveau mot de passe",
+  confirmPassword: "Confirmer le mot de passe",
+  changePassword: "Changer le mot de passe",
+  passwordRequirements: "Le mot de passe doit contenir au moins 8 caractères",
+  passwordChanged: "Mot de passe changé avec succès",
+  passwordChangeError: "Échec du changement de mot de passe",
+  passwordMismatch: "Les mots de passe ne correspondent pas",
+  passwordTooWeak: "Le mot de passe est trop faible",
+  passwordSecurityNote: "Pour votre sécurité, veuillez choisir un mot de passe fort",
+  updating: "Mise à jour...",
   username: "Nom d'utilisateur",
   exportMyData: "Exporter mes données",
+  exportDataTitle: "Exporter les données",
+  exportDataDescription: "Télécharger une copie de vos données",
+  exportDataWarning: "Cela peut prendre quelques minutes. Veuillez ne pas fermer cette page.",
+  exportDataSuccess: "Vos données ont été exportées avec succès.",
+  exportDataError: "Échec de l'exportation des données. Veuillez réessayer.",
+  exportData: "Exporter les données",
+  exporting: "Exportation...",
   disableMyAccount: "Désactiver mon compte",
+  disable: "Désactiver",
+  disabling: "Désactivation...",
   deleteMyAccount: "Supprimer mon compte",
   onlineStatus: "Statut en ligne",
   unableToLoadChat: 'Impossible de charger la discussion "[name]"',
@@ -678,6 +735,23 @@ export const french: Vocabulary = {
   activitiesWillShowHere: "Vos activités s'afficheront ici.",
   unauthorizedAction: "Action non autorisée",
   internalServerError: "Erreur interne du serveur",
+  currentUsername: "Nom d'utilisateur actuel",
+  newUsername: "Nouveau nom d'utilisateur",
+  changeUsername: "Changer le nom d'utilisateur",
+  usernameRequirements: "Le nom d'utilisateur doit contenir entre 3 et 20 caractères, uniquement des lettres, chiffres et tirets bas.",
+  usernameChanged: "Nom d'utilisateur changé avec succès",
+  usernameChangeError: "Échec du changement de nom d'utilisateur",
+  usernameTaken: "Le nom d'utilisateur est déjà pris",
+  usernameTooFrequent: "Les changements de nom d'utilisateur sont limités à une fois par mois",
+  usernameChangeLimit: "Vous pouvez changer votre nom d'utilisateur à nouveau dans [days] jours",
+  deleteAccountWarning: "Cette action est permanente et ne peut pas être annulée. Toutes vos données seront supprimées.",
+  accountDeleted: "Votre compte a été supprimé avec succès.",
+  accountDeleteError: "Échec de la suppression du compte. Veuillez réessayer.",
+  passwordRequired: "Le mot de passe est requis",
+  enterCurrentPassword: "Entrez le mot de passe actuel",
+  disableAccountWarning: "Votre compte sera désactivé. Vous pouvez le réactiver en contactant le support.",
+  accountDisabled: "Votre compte a été désactivé avec succès.",
+  accountDisableError: "Échec de la désactivation du compte. Veuillez réessayer.",
 };
 
 export const vocabulary = {
@@ -691,16 +765,16 @@ export type Language = keyof typeof vocabulary;
 export const allVocabularyKeys = Object.keys(english) as VocabularyKey[];
 
 // Fonction pour récupérer les valeurs de `vocabulary` et en faire un type
-export function getVocabularyObject<K extends VocabularyKey>(
-  keys: K[] = allVocabularyKeys as K[],
-): Record<K, string> {
-  const result: Partial<Record<K, string>> = {};
+export function getVocabularyObject(
+  keys: VocabularyKey[] = allVocabularyKeys,
+): Record<VocabularyKey, string> {
+  const result: Partial<Record<VocabularyKey, string>> = {};
   keys.forEach((key) => {
     if (key in vocabulary.en) {
       result[key] = vocabulary.en[key];
     }
   });
-  return result as Record<K, string>;
+  return result as Record<VocabularyKey, string>;
 }
 
 const vocabularyObject = getVocabularyObject();

@@ -71,9 +71,10 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({
 export const useLanguage = () => useContext(LanguageContext);
 
 // Fonction pour récupérer une ou plusieurs traductions côté client
-export function t(): VocabularyObject;
-export function t(keys: VocabularyKey): string;
 export function t(keys: VocabularyKey[]): Record<VocabularyKey, string>;
+export function t(keys: VocabularyKey): string;
+export function t( keys: VocabularyKey | VocabularyKey[], replacements: Record<string, string | number>): string;
+export function t(): VocabularyObject;
 export function t(
   keys?: VocabularyKey | VocabularyKey[],
   replacements?: Record<string, string | number>,

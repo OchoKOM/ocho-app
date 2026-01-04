@@ -4,10 +4,10 @@ import UserAvatar from "@/components/UserAvatar";
 import { useSession } from "../SessionProvider";
 import OchoLink from "@/components/ui/OchoLink";
 import { Button } from "@/components/ui/button";
-import { Language, VocabularyKey, getVocabularyObject } from "@/lib/vocabulary";
+import { Language,  } from "@/lib/vocabulary";
 import { t } from "@/context/LanguageContext";
 import { CheckCircle2, ChevronRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 export type SettingsOption = {
