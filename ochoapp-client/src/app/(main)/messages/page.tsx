@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function Page() {
   return (
-    <div className="relative max-h-full w-full overflow-hidden">
+    <div className="relative max-h-full w-fit sm:w-full overflow-hidden">
       <SetNavigation navPage="messages" />
       <Messages />
     </div>

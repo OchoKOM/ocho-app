@@ -89,7 +89,7 @@ export default function Messages() {
       {/* Conteneur principal (Layout Chat) */}
       <div
         className={cn(
-          "flex flex-1 w-full transition-transform duration-300 ease-in-out h-full",
+          "flex flex-1 sm:w-full w-fit transition-transform duration-300 ease-in-out h-full",
           (activeRoomId || newChat) && "max-sm:-translate-x-[100vw]",
         )}
       >
