@@ -251,7 +251,7 @@ export default function RoomHeader({
 
   return (
     <div
-      className={`${active ? "absolute inset-0 z-10 h-full w-full overflow-y-auto bg-card max-sm:bg-background sm:rounded-e-3xl" : "relative flex-1"}`}
+      className={cn("z-20", active ? "absolute inset-0 z-20 h-full w-full overflow-y-auto bg-card max-sm:bg-background sm:rounded-e-3xl" : "relative flex-1")}
     >
       <div
         className={
