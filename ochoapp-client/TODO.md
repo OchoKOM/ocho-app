@@ -1,13 +1,16 @@
-# TODO: Third-Party Auth Modifications
+# TODO: Encrypt Data Export
 
-## Pending Tasks
-- [x] Modify OAuth callback routes to set custom cookies indicating third-party auth
-  - [x] Google callback: src/app/api/auth/callback/google/route.ts
-  - [x] Facebook callback: src/app/api/auth/callback/facebook/route.ts
-  - [x] GitHub callback: src/app/api/auth/callback/github/route.ts
-- [x] Update users/update route to conditionally require current password based on passwordHash existence
-  - [x] src/app/api/users/update/route.ts
-- [x] Modify PasswordDialog to hide current password field for users without passwords
-  - [x] src/app/(main)/settings/PasswordDialog.tsx
-- [ ] Test OAuth flows, password updates, and data encryption
-- [ ] Ensure security: secure cookies, proper encryption
+## Backend Changes
+- [x] Import CryptoJS in `src/app/api/users/export/route.ts`
+- [x] Retrieve `INTERNAL_SERVER_SECRET` from environment variables
+- [x] Encrypt the JSON data using `CryptoJS.AES.encrypt`
+- [x] Update response headers: `Content-Type` to 'application/octet-stream' and `Content-Disposition` to 'attachment; filename="user-data.kom"'
+
+## Frontend Changes
+- [x] Update download filename in `src/app/(main)/settings/ExportDataDialog.tsx` to 'user-data.kom'
+
+## Testing
+- [ ] Test the export functionality to ensure encryption and correct file extension
+  - Ensure INTERNAL_SERVER_SECRET is set in environment variables
+  - Export data and verify the file is downloaded as 'user-data.kom'
+  - Verify the file content is encrypted (not readable JSON)

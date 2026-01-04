@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "@/auth";
 import prisma from "@/lib/prisma";
+import CryptoJS from "crypto-js";
 
 export async function GET(req: NextRequest) {
   try {
@@ -95,10 +96,17 @@ export async function GET(req: NextRequest) {
       note: "This export contains your public data and activity. Sensitive information like passwords is not included."
     };
 
-    return new NextResponse(JSON.stringify(exportData, null, 2), {
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const secretKey = process.env.INTERNAL_SERVER_SECRET;
+    if (!secretKey) {
+      throw new Error("INTERNAL_SERVER_SECRET environment variable is not set");
+    }
+    const encryptedData = CryptoJS.AES.encrypt(jsonString, secretKey).toString();
+
+    return new NextResponse(encryptedData, {
       headers: {
-        'Content-Type': 'application/json',
-        'Content-Disposition': 'attachment; filename="user-data.json"'
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': 'attachment; filename="user-data.kom"'
       }
     });
 
