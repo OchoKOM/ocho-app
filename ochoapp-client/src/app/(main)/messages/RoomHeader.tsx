@@ -110,7 +110,7 @@ export default function RoomHeader({
         <div className="flex w-full flex-shrink-0 items-center gap-2 px-4 py-3 *:flex-shrink-0 max-sm:bg-card/50">
           <Skeleton className="h-10 w-10 rounded-full" />
           <div className="flex w-full flex-col gap-2">
-            <Skeleton className="h-3 w-60 max-w-full" />
+            <Skeleton className="h-3 w-40 max-w-full" />
             <Skeleton className="h-2 w-20 max-w-full" />
           </div>
         </div>

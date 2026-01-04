@@ -2,7 +2,7 @@ import { RoomData } from "@/lib/types";
 import RoomPreview from "./RoomPreview";
 import InfiniteScrollContainer from "@/components/InfiniteScrollContainer";
 import { useSession } from "../SessionProvider";
-import RoomsLoadingSkeleton from "./skeletons/RoomSkeleton";
+import RoomsLoadingSkeleton, { RoomSkeleton } from "./skeletons/RoomSkeleton";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useActiveRoom } from "@/context/ChatContext";
 import {
@@ -68,7 +68,7 @@ export default function SideBar({
   ]);
 
   // --- SOCKET & STATE ---
-  const { socket, isConnected } = useSocket();
+  const { socket, isConnected, retryConnection } = useSocket();
   const [rooms, setRooms] = useState<RoomData[]>([]);
 
   // --- RECHERCHE LOCALE ---
@@ -102,7 +102,7 @@ export default function SideBar({
   } = useQuery({
     queryKey: queryKey,
     queryFn: () => kyInstance.get("/api/room-list").json<RoomData[]>(),
-    staleTime: 1000 * 60 * 5, // 5 minutes de cache
+    staleTime: Infinity, // 5 minutes de cache
   });
 
   // --- SYNCHRONISATION HTTP -> STATE LOCAL ---
@@ -149,7 +149,7 @@ export default function SideBar({
     setIsLoading(true);
     setStatus("pending");
     if (socket && !isConnected) {
-      socket.connect();
+      retryConnection();
     }
     refetchHttp();
   };
@@ -318,7 +318,7 @@ export default function SideBar({
     navigate("/messages");
   }
 
-  const showSkeleton = (isLoading || isHttpLoading) && rooms.length === 0 || status === "pending";
+  const showSkeleton = (isLoading || isHttpLoading) && rooms.length === 0 && status === "pending";
 
   return (
     <div className="relative flex h-full flex-col">
@@ -424,7 +424,7 @@ export default function SideBar({
                 <h2 className="text-xl font-semibold">{dataError}</h2>
                 {!isConnected && (
                   <p className="mt-1 text-sm text-muted-foreground/80">
-                    Impossible de charger vos discussions.
+                    {t("cantLoadChats")}
                   </p>
                 )}
               </div>
@@ -435,7 +435,7 @@ export default function SideBar({
                 className="mt-2 gap-2"
               >
                 <RefreshCw size={16} />
-                Réessayer la connexion
+                {t("retryConnection")}
               </Button>
             </div>
           </div>
@@ -457,6 +457,7 @@ export default function SideBar({
 
         {isFetchingMore && !searchQuery && (
           <ul>
+            <RoomSkeleton/>
             <li className="flex w-full justify-center p-4">
               <Loader2 className="mx-auto animate-spin" />
             </li>

@@ -24,7 +24,7 @@ export default function Messages() {
   const { activeRoomId, setActiveRoomId } = useActiveRoom();
   const queryClient = useQueryClient();
   const { startNavigation: navigate } = useProgress();
-  const { socket, isConnected, isConnecting } = useSocket();
+  const { socket, isConnected, isConnecting, retryConnection } = useSocket();
   const { messagesOnApp, selectChatToStart } = t([
     "messagesOnApp",
     "selectChatToStart",
@@ -47,9 +47,10 @@ export default function Messages() {
   // Fonction manuelle pour retenter la connexion
   const handleRetryConnection = () => {
     if (socket) {
-      socket.connect();
-      // On invalide aussi la liste des rooms pour forcer un fetch HTTP
-      queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      // When automatic reconnection fails, call retryConnection
+      if (!isConnected && !isConnecting) {
+        retryConnection();
+      }
     } else {
       window.location.reload();
     }
@@ -77,7 +78,7 @@ export default function Messages() {
             variant="outline"
             size="sm"
             onClick={handleRetryConnection}
-            className="h-7 border-destructive/50 bg-transparent text-destructive hover:bg-destructive hover:text-destructive-foreground flex items-center gap-2"
+            className="h-7 border-destructive/50 bg-transparent text-destructive hover:bg-destructive hover:text-destructive-foreground flex items-center gap-2 active:scale-95 duration-200"
           >
             <RefreshCw size={14} className={cn(isConnecting && "animate-spin")} />
             {t("retry")}

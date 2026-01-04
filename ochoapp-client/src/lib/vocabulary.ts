@@ -182,6 +182,7 @@ export const english = {
   waitEndOfOperation: "Wait for the end of the current operation",
   youCanChat: "You can now chat",
   savedMessages: "Saved messages",
+  retryConnection: "Retry connection",
   reconnecting: "Connecting...",
   connected: "Connected",
   realtimeServerOffline: "Realtime server is offline",
@@ -260,6 +261,7 @@ export const english = {
   dismissAsAdmin: "Dismiss as admin",
   // Chat List
   chats: "Chats",
+  cantLoadChats: "Unable to load your chats.",
   messagesOnApp: "Messages on OchoApp",
   selectChatToStart: "Select a chat to start.",
   newChat: "New chat",
@@ -561,6 +563,7 @@ export const french: Vocabulary = {
   waitEndOfOperation: "Patientez la fin de l'opération en cours",
   youCanChat: "Vous pouvez maintenant discuter",
   savedMessages: "Messages enregistrés",
+  retryConnection: "Retenter la connexion",
   reconnecting: "Reconnexion...",
   connected: "Connecté",
   realtimeServerOffline: "Le serveur de temps reel est hors ligne",
@@ -644,6 +647,7 @@ export const french: Vocabulary = {
   dismissAsAdmin: "Supprimer des admins",
   // Chat List
   chats: "Discussions",
+  cantLoadChats: "Impossible de charger vos discussions.",
   messagesOnApp: "Messages sur OchoApp",
   selectChatToStart: "Sélectionnez une discussion pour commencer.",
   newChat: "Nouvelle discussion",

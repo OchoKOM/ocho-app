@@ -17,7 +17,7 @@ export default function RoomsLoadingSkeleton() {
   );
 }
 
-function RoomSkeleton() {
+export function RoomSkeleton() {
   return (
     <li className="w-full p-2">
       <div className="flex w-full items-center space-x-2">

@@ -23,6 +23,7 @@ interface SocketContextType {
   isConnecting: boolean;
   onlineStatus: Record<string, { isOnline: boolean; lastSeen?: Date }>;
   checkUserStatus: (userId: string) => void;
+  retryConnection: () => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
@@ -31,6 +32,7 @@ const SocketContext = createContext<SocketContextType>({
   isConnecting: false,
   onlineStatus: {},
   checkUserStatus: () => {},
+  retryConnection: () => {},
 });
 
 // Hook personnalisé pour utiliser le socket
@@ -73,12 +75,19 @@ export default function SocketProvider({
     Record<string, { isOnline: boolean; lastSeen?: Date }>
   >({});
   const [isServerTriggered, setIsServerTriggered] = useState(false);
+  const [forceReconnect, setForceReconnect] = useState(0);
 
   // Fonction stable pour émettre des événements
   const checkUserStatus = useCallback((targetUserId: string) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit("check_user_status", { userId: targetUserId });
     }
+  }, []);
+
+  // Fonction pour forcer une reconnexion manuelle
+  const retryConnection = useCallback(() => {
+    console.log("🔄 Tentative de reconnexion manuelle...");
+    setForceReconnect((prev) => prev + 1);
   }, []);
 
   useEffect(() => {
@@ -247,7 +256,7 @@ export default function SocketProvider({
         socketRef.current = null;
       }
     };
-  }, [user, token]);
+  }, [user, token, forceReconnect]);
 
   return (
     <SocketContext.Provider
@@ -257,6 +266,7 @@ export default function SocketProvider({
         isConnecting,
         onlineStatus,
         checkUserStatus,
+        retryConnection,
       }}
     >
       <div
@@ -271,7 +281,7 @@ export default function SocketProvider({
             <span className="text-xs font-semibold">{t().connected}</span>
           </div>
         ) : isConnecting ? (
-          <div className="flex animate-pulse items-center gap-2 rounded-full border border-amber-200 bg-amber-50/75 px-4 py-2 text-amber-600 shadow-md dark:border-amber-800 dark:bg-amber-900/50">
+          <div className="flex animate-pulse items-center gap-2 rounded-full border border-amber-200 bg-amber-500/10 px-4 py-2 text-amber-600 shadow-md dark:border-amber-800 dark:bg-amber-900/50">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span className="text-xs font-semibold">{t().reconnecting}</span>
           </div>
