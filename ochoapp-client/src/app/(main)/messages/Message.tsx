@@ -659,17 +659,17 @@ export default function Message({
                     "flex w-fit flex-col",
                     isOwner ? "items-end" : "items-start",
                   )}
-                >
+                  >
                   <div
                     className={cn(
                       "flex w-fit items-center gap-1",
                       !isOwner && "flex-row-reverse",
                     )}
+                    onContextMenu={handleContextMenu}
                   >
                     <div className="relative h-fit w-fit">
                       <div
                         ref={bubbleRef}
-                        onContextMenu={handleContextMenu}
                         className={cn(
                           activeOverlayRect ? "opacity-0" : "opacity-100",
                         )}

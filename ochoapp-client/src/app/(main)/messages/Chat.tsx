@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   Frown,
   Loader2,
+  LogOut,
   RefreshCw,
   Search,
   Send,
@@ -37,6 +38,7 @@ import { useSocket } from "@/components/providers/SocketProvider";
 import { MessageType } from "@prisma/client";
 import Linkify from "@/components/Linkify";
 import UserAvatar from "@/components/UserAvatar";
+import { createPortal } from "react-dom";
 
 interface ChatProps {
   roomId: string | null;
@@ -56,7 +58,7 @@ interface SentMessageState {
 
 export default function Chat({ roomId, initialData, onClose }: ChatProps) {
   // AJOUT : on récupère isConnecting pour gérer l'état de reconnexion si besoin
-  const { socket, isConnected, isConnecting } = useSocket();
+  const { socket, isConnected, isConnecting, retryConnection } = useSocket();
   const { isVisible, setIsVisible } = useMenuBar();
   const pathname = usePathname();
   const router = useRouter();
@@ -64,10 +66,13 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
   const [prevPathname, setPrevPathname] = useState(pathname);
   const [messageInputExpanded, setMessageInputExpanded] = useState(true);
 
+  // --- NOUVEAU : État pour le menu contextuel (Click Droit) ---
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
+
   // State pour la recherche locale de messages
   const [searchQuery, setSearchQuery] = useState("");
 
-  // État pour gérer les messages en cours d'envoi (Optimistic UI)
+  // État pour gérer les messages en cours d'envoi (Optimistic UI géré manuellement)
   const [sentMessages, setSentMessages] = useState<SentMessageState[]>([]);
   const [newMessages, setNewMessages] = useState<MessageData[]>([]);
 
@@ -91,6 +96,7 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
     setSentMessages([]);
     setTypingUsers([]);
     setSearchQuery(""); // Reset search
+    setContextMenuPos(null); // Reset menu contextuel
   }, [roomId]);
 
   // --- GESTION DU SOCKET : JOIN / LEAVE / EVENTS ---
@@ -110,14 +116,22 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
     const handleReceiveMessage = (data: {
       newMessage: MessageData;
       roomId: string;
+      tempId?: string; // On reçoit l'ID temporaire pour le nettoyage
     }) => {
       // Sécurité supplémentaire : on vérifie que le message concerne bien la room active
       if (data.roomId === roomId) {
-        // On supprime le message temporaire correspondant s'il existe (pour éviter les doublons visuels)
+        
+        // 1. AJOUTER le message confirmé à la liste des messages affichés (newMessages)
         setNewMessages((prev) => [
           data.newMessage,
           ...prev.filter((msg) => msg.id !== data.newMessage.id),
         ]);
+
+        // 2. SUPPRIMER le message temporaire correspondant dans sentMessages
+        // C'est ici que "SentMessage" disparaît une fois le succès confirmé
+        if (data.tempId) {
+          setSentMessages((prev) => prev.filter((msg) => msg.tempId !== data.tempId));
+        }
       }
     };
 
@@ -163,8 +177,10 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
     // 3. Gestion des erreurs d'envoi
     const handleError = (error: { message: string }) => {
       toast({ variant: "destructive", description: error.message });
+      // En cas d'erreur globale, on marque tous les messages "sending" comme "error"
+      // L'utilisateur pourra réessayer individuellement
       setSentMessages((prev) =>
-        prev.map((msg) => ({ ...msg, status: "error" })),
+        prev.map((msg) => (msg.status === "sending" ? { ...msg, status: "error" } : msg)),
       );
     };
 
@@ -320,39 +336,33 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
 
     if (!isConnected) {
       console.log("Socket déconnecté, tentative de reconnexion...");
-      socket.connect();
+      retryConnection()
     }
 
     handleTypingStop();
 
     const tempId = Math.random().toString(36).slice(2);
-    const newMessage = {
-      id: tempId,
-      content: content.trim(),
-      senderId: loggedUser.id,
-      roomId: roomId,
-      createdAt: new Date().toISOString(),
-      sender: loggedUser,
-      status: "sending",
-    };
-
-    // Mise à jour optimiste de l'UI (React Query)
-    queryClient.setQueryData(["room", "messages", roomId], (old: any) => {
-      if (!old) return old;
-      return {
-        ...old,
-        pages: old.pages.map((page: any, index: number) =>
-          index === 0
-            ? { ...page, messages: [newMessage, ...page.messages] }
-            : page,
-        ),
-      };
-    });
+    
+    // NOUVELLE LOGIQUE :
+    // Au lieu de mettre à jour le cache React Query "optimistiquement" et de risquer des états incohérents,
+    // on délègue la gestion de l'affichage temporaire à "sentMessages".
+    
+    setSentMessages((prev) => [
+      ...prev,
+      {
+        tempId,
+        content: content.trim(),
+        roomId,
+        type: "CONTENT",
+        status: "sending",
+      }
+    ]);
 
     socket.emit("send_message", {
       content: content.trim(),
       roomId,
       type: "CONTENT",
+      tempId, // On envoie l'ID temporaire pour faire le lien au retour
     });
   };
 
@@ -377,11 +387,22 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
       roomId: msg.roomId,
       type: msg.type,
       recipientId: msg.recipientId,
+      tempId: msg.tempId, // On garde le même ID temporaire
     });
   }
 
+  // --- GESTION DU CLIC DROIT (CONTEXT MENU) ---
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault(); // Empêche le menu natif du navigateur
+    setContextMenuPos({ x: e.clientX, y: e.clientY });
+  };
+
   return (
-    <div className="absolute flex h-full w-full flex-1 flex-col max-sm:bg-card/30">
+    // Ajout de onContextMenu sur le conteneur principal
+    <div 
+      className="absolute flex h-full w-full flex-1 flex-col max-sm:bg-card/30"
+      onContextMenu={handleContextMenu}
+    >
       {/* HEADER */}
       <div className="flex w-full items-center gap-2 px-4 py-3 max-sm:bg-card/50">
         <div
@@ -471,7 +492,7 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
                 );
               })}
 
-              {/* Messages en cours d'envoi (échecs ou loading) - Pas de filtrage ici généralement */}
+              {/* Messages en cours d'envoi (échecs ou loading) - Géré par SentMessage */}
               {sentMessages.map((msg) => (
                 <SendingMessage
                   key={msg.tempId}
@@ -593,11 +614,62 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
           )}
         </div>
       </div>
+
+      {/* MENU CONTEXTUEL (Click Droit) */}
+      {contextMenuPos && (
+        <ChatContextMenu
+          position={contextMenuPos}
+          onClose={() => setContextMenuPos(null)}
+          onCloseChat={onClose}
+        />
+      )}
     </div>
   );
 }
 
 // --- SOUS-COMPOSANTS ---
+
+// --- NOUVEAU : COMPOSANT MENU CONTEXTUEL ---
+interface ChatContextMenuProps {
+  position: { x: number; y: number };
+  onClose: () => void;
+  onCloseChat: () => void;
+}
+
+function ChatContextMenu({ position, onClose, onCloseChat }: ChatContextMenuProps) {
+  // On utilise un Portal pour être sûr d'être au-dessus de tout (z-50)
+  // On réutilise les classes de ReactionOverlay (backdrop-blur, animate-in, etc.)
+  return createPortal(
+    <div className="fixed inset-0 isolate z-50 flex flex-col font-sans" onContextMenu={(e) => e.preventDefault()}>
+      {/* Backdrop invisible mais qui ferme le menu au clic */}
+      <div
+        className="absolute inset-0 bg-background/10 backdrop-blur-[2px] transition-opacity duration-200"
+        onClick={onClose}
+      />
+
+      {/* Le Menu */}
+      <div
+        className="absolute min-w-[200px] overflow-hidden rounded-xl border border-border bg-popover/90 py-1 shadow-2xl backdrop-blur-xl transition-all duration-200 animate-in fade-in zoom-in-95"
+        style={{
+          top: position.y,
+          left: position.x,
+        }}
+      >
+        <button
+          onClick={() => {
+            onCloseChat();
+            onClose();
+          }}
+          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive"
+        >
+          <X size={16} />
+          {t("closeChat")}
+        </button>
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 interface MessageFormProps {
   expanded: boolean;
@@ -757,7 +829,7 @@ function SendingMessage({ content, status, onRetry }: SendingMessageProps) {
             <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
               {status === "sending" && (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin" /> Envoi...
+                  <Loader2 className="h-3 w-3 animate-spin" /> {t("sending")}
                 </>
               )}
               {status === "error" && (

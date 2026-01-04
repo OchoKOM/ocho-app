@@ -140,6 +140,7 @@ io.on("connection", async (socket) => {
           return { ...room, messages: [message] };
         });
         
+        // CORRECTION : On s'assure que le créateur rejoint immédiatement la room socket
         socket.join(newRoom.id);
         
         members.forEach((memberId) => {
@@ -290,15 +291,12 @@ io.on("connection", async (socket) => {
 
         const updatedReads = await getMessageReads(messageId);
 
-        // 1. Notifier les membres de la room que le message a été lu
         io.to(roomId).emit("message_read_update", {
           messageId,
           reads: updatedReads,
         });
 
-        // 2. Notifier l'utilisateur courant que ses notifications pour cette room sont effacées
         io.to(userId).emit("unread_count_cleared", { roomId });
-
       } catch (error) {
         console.error("Erreur mark_message_read:", error);
       }
@@ -364,7 +362,6 @@ io.on("connection", async (socket) => {
         });
 
         if (userId !== originalMessage.senderId) {
-          // Logique complexe de suppression des anciennes notifications de réaction
           await prisma.message.deleteMany({
             where: {
               senderId: userId,
@@ -424,11 +421,6 @@ io.on("connection", async (socket) => {
                 "room_list_updated",
                 roomsForRecipient
               );
-              
-              // Notification pour la réaction
-              io.to(originalMessage.senderId).emit("unread_count_increment", {
-                  roomId: originalMessage.roomId
-              });
             }
           }
         }
@@ -648,10 +640,11 @@ io.on("connection", async (socket) => {
       roomId: string;
       type: MessageType;
       recipientId: string | undefined;
+      tempId?: string; // AJOUT : ID temporaire envoyé par le client
     }) => {
       const userId = socket.data.user.id;
       const username = socket.data.user.username;
-      const { content, roomId, type, recipientId } = data;
+      const { content, roomId, type, recipientId, tempId } = data;
 
       console.log(chalk.blue("Envoi du message:", content));
 
@@ -660,7 +653,6 @@ io.on("connection", async (socket) => {
         let newMessage;
 
         if (isSavedMessage) {
-          // ... (logique messages sauvegardés inchangée)
           const savedMsg = await prisma.message.create({
             data: {
               content,
@@ -677,7 +669,8 @@ io.on("connection", async (socket) => {
           const newMessage = { ...savedMsg, type: emissionType };
 
           socket.join(roomId);
-          io.to(roomId).emit("receive_message", { newMessage, roomId });
+          // AJOUT : Renvoyer tempId au client
+          io.to(roomId).emit("receive_message", { newMessage, roomId, tempId });
           
           const updatedRooms = await getFormattedRooms(userId, username);
           io.to(userId).emit("room_list_updated", updatedRooms);
@@ -695,7 +688,6 @@ io.on("connection", async (socket) => {
             return socket.emit("error", { message: "Action non autorisée" });
           }
           
-          // 1. Transaction pour créer le message
           const [createdMessage, roomData] = await prisma.$transaction([
             prisma.message.create({
               data: {
@@ -715,7 +707,6 @@ io.on("connection", async (socket) => {
 
           newMessage = createdMessage;
 
-          // 2. Mise à jour de LastMessage pour tous les membres actifs
           const activeMembers = await prisma.roomMember.findMany({
             where: { roomId, leftAt: null, type: { not: "BANNED" } },
             include: { user: true },
@@ -734,41 +725,41 @@ io.on("connection", async (socket) => {
               });
             }
           }
-
-          // 3. Émission immédiate du message au salon
           socket.join(roomId);
+
+          // AJOUT : Renvoyer tempId au client
           io.to(roomId).emit("receive_message", {
             newMessage,
             roomId,
             newRoom: roomData,
+            tempId // Important pour le mapping côté client
           });
           
-          // 4. Notifications & Mise à jour Sidebar (Séparées pour la robustesse)
-          activeMembers.forEach(async (member) => {
-             if (!member.userId || !member.user) return;
+          await Promise.all(
+            activeMembers.map(async (member) => {
+              if (member.userId && member.user) {
+                try {
+                  const updatedRooms = await getFormattedRooms(
+                    member.userId,
+                    member.user.username
+                  );
+                  io.to(member.userId).emit("room_list_updated", updatedRooms);
 
-             // A. Notification (Compteur) - Prioritaire et découplé
-             // On incrémente pour tous sauf l'expéditeur
-             if (member.userId !== userId) {
-                io.to(member.userId).emit("unread_count_increment", {
-                   roomId,
-                });
-             }
-
-             // B. Mise à jour de la liste des conversations (Sidebar) - Peut être lent/échouer
-             try {
-                const updatedRooms = await getFormattedRooms(
-                   member.userId,
-                   member.user.username
-                );
-                io.to(member.userId).emit("room_list_updated", updatedRooms);
-             } catch (e) {
-                console.error(`Erreur mise à jour sidebar pour ${member.userId}:`, e);
-             }
-          });
+                  if (member.userId !== userId) {
+                    io.to(member.userId).emit("unread_count_increment", {
+                      roomId,
+                    });
+                  }
+                } catch (e) {
+                  console.error("Erreur refresh member:", member.userId);
+                }
+              }
+            })
+          );
         }
       } catch (error) {
         console.error("Erreur send_message:", error);
+        // On pourrait ajouter le tempId ici aussi si on voulait gérer l'erreur spécifiquement
         socket.emit("error", { message: "Erreur lors de l'envoi" });
       }
     }
