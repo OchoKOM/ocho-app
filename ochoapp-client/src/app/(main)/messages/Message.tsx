@@ -109,10 +109,7 @@ export function DeletionPlaceholder({
           />
 
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onCancel();
-            }}
+            onClick={onCancel}
             className="z-10 flex items-center gap-1 rounded-full border border-muted-foreground/40 bg-background/40 p-1 text-xs font-bold text-foreground shadow-sm transition-all hover:border-muted-foreground/60 hover:bg-background/30 active:scale-95 dark:border-muted/50 hover:dark:border-muted/60"
           >
             {/* Conteneur du Cercle et du Chiffre */}
