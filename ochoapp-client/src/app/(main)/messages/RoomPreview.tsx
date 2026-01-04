@@ -359,7 +359,7 @@ export default function RoomPreview({
 
   const chatName =
     room.name ||
-    `${otherUser?.displayName || appUser} ${isSaved ? `(${you})` : ""}` ||
+    `${(isSaved ? savedMessages : otherUser?.displayName) || appUser}` ||
     (room.isGroup ? groupChat : appUser);
 
   return (
