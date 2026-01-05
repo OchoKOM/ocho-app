@@ -54,6 +54,7 @@ model User {
   searches       SearchHistory[]
 
   @@map("users")
+  userPrivacies UserPrivacy[]
 }
 
 model OldUserData {
@@ -398,4 +399,40 @@ model SearchHistory {
   createdAt DateTime @default(now())
 
   @@map("search_history")
+}
+
+model Privacy {
+  id        String       @id @default(cuid())
+  type      PrivacyType
+  value     PrivacyValue
+  userPrivacy UserPrivacy[]
+
+  @@unique([type, value])
+  @@map("privacy")
+}
+
+enum PrivacyType {
+  PROFILE_VISIBILITY
+  POST_VISIBILITY
+  MESSAGE_PRIVACY
+  ONLINE_STATUS_VISIBILITY
+}
+
+enum PrivacyValue {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+  EVERYONE
+  NO_ONE
+}
+
+model UserPrivacy {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  privacyId String
+  privacy   Privacy @relation(fields: [privacyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, privacyId])
+  @@map("user_privacy")
 }

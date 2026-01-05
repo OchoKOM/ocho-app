@@ -31,6 +31,10 @@ import UsernameDialog from "./UsernameDialog";
 import ExportDataDialog from "./ExportDataDialog";
 import DisableAccountDialog from "./DisableAccountDialog";
 import DeleteAccountDialog from "./DeleteAccountDialog";
+import ProfileVisibilityDialog from "./ProfileVisibilityDialog";
+import PostPrivacyDialog from "./PostPrivacyDialog";
+import MessagePrivacyDialog from "./MessagePrivacyDialog";
+import OnlineStatusVisibilityDialog from "./OnlineStatusVisibilityDialog";
 
 interface OptionsProps {
   setting?: string | null;
@@ -61,6 +65,10 @@ export default function Options({
     system,
     light,
     dark,
+    profileVisibility,
+    postPrivacy,
+    messagePrivacy,
+    onlineStatusVisibility,
   } = t([
     "account",
     "privacy",
@@ -77,6 +85,10 @@ export default function Options({
     "system",
     "light",
     "dark",
+    "profileVisibility",
+    "postPrivacy",
+    "messagePrivacy",
+    "onlineStatusVisibility",
   ]
   );
 
@@ -136,6 +148,30 @@ export default function Options({
       },
     ],
     privacy: [
+      {
+        value: "profile-visibility",
+        label: profileVisibility,
+        icon: <UserRound size={24} />,
+        action: "default",
+        onClick: (value: string) => console.log(value),
+        dialogElement: <ProfileVisibilityDialog />,
+      },
+      {
+        value: "post-privacy",
+        label: postPrivacy,
+        icon: <LockKeyholeIcon size={24} />,
+        action: "default",
+        onClick: (value: string) => console.log(value),
+        dialogElement: <PostPrivacyDialog />,
+      },
+      {
+        value: "online-status-visibility",
+        label: onlineStatusVisibility,
+        icon: <CirclePower size={24} />,
+        action: "default",
+        onClick: (value: string) => console.log(value),
+        dialogElement: <OnlineStatusVisibilityDialog />,
+      },
     ],
     display: [
       {

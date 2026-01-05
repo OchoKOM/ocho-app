@@ -1,6 +1,19 @@
 import { Prisma } from "@prisma/client";
 import { Vocabulary } from "./vocabulary";
 
+export type PrivacyType =
+  | "PROFILE_VISIBILITY"
+  | "POST_VISIBILITY"
+  | "MESSAGE_PRIVACY"
+  | "ONLINE_STATUS_VISIBILITY";
+
+export type PrivacyValue =
+  | "PUBLIC"
+  | "FOLLOWERS"
+  | "PRIVATE"
+  | "EVERYONE"
+  | "NO_ONE";
+
 export type MenuBarContextType = {
   isVisible: boolean;
   setIsVisible: (isVisible: boolean) => void;

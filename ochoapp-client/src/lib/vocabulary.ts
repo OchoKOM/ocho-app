@@ -373,6 +373,14 @@ export const english = {
   accountDisableError: "Failed to disable account. Please try again.",
   userUpdated: "User updated successfully",
   unableToUpdateUser: "Unable to update user. Please try again.",
+  profileVisibility: "Profile visibility",
+  postPrivacy: "Post privacy",
+  messagePrivacy: "Message privacy",
+  onlineStatusVisibility: "Online status visibility",
+  public: "Public",
+  private: "Private",
+  everyone: "Everyone",
+  noOne: "No one",
 };
 export type Vocabulary = typeof english;
 export const french: Vocabulary = {
@@ -762,6 +770,14 @@ export const french: Vocabulary = {
   accountDisableError: "Échec de la désactivation du compte. Veuillez réessayer.",
   userUpdated: "Utilisateur mis à jour avec succès",
   unableToUpdateUser: "Impossible de mettre à jour l'utilisateur. Veuillez réessayer.",
+  profileVisibility: "Visibilité du profil",
+  postPrivacy: "Confidentialité des publications",
+  messagePrivacy: "Confidentialité des messages",
+  onlineStatusVisibility: "Visibilité du statut en ligne",
+  public: "Public",
+  private: "Privé",
+  everyone: "Tout le monde",
+  noOne: "Personne",
 };
 
 export const vocabulary = {
