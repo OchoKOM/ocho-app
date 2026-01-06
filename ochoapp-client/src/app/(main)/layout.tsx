@@ -38,7 +38,7 @@ export default async function Layout({
               <MenuBarProvider>
                 <SearchProvider>
                   <ChatProvider>
-                    <div className="min-h-dvh relative flex h-screen w-full flex-col">
+                    <div className="max-h-dvh relative flex h-screen w-full flex-col">
                       <Navbar />
                       <div className="relative h-full max-h-full w-full overflow-hidden">
                         <main className="mx-auto flex h-full max-h-full w-full max-w-7xl justify-center gap-5 overflow-auto sm:p-5">

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  InfiniteData,
   useInfiniteQuery,
   useQuery,
   useQueryClient,
@@ -117,17 +118,34 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
       roomId: string;
       tempId?: string; // On reçoit l'ID temporaire pour le nettoyage
     }) => {
-      // Sécurité supplémentaire : on vérifie que le message concerne bien la room active
       if (data.roomId === roomId) {
         
-        // 1. AJOUTER le message confirmé à la liste des messages affichés (newMessages)
-        setNewMessages((prev) => [
-          data.newMessage,
-          ...prev.filter((msg) => msg.id !== data.newMessage.id),
-        ]);
+        // 1. Mettre à jour le cache React Query directement
+        queryClient.setQueryData<InfiniteData<MessagesSection>>(
+          ["room", "messages", roomId],
+          (oldData) => {
+            if (!oldData) return oldData;
+
+            // On clone les pages pour l'immutabilité
+            // On suppose que la première page (index 0) contient les messages les plus récents
+            const newPages = oldData.pages.map((page, index) => {
+              if (index === 0) {
+                return {
+                  ...page,
+                  messages: [data.newMessage, ...page.messages],
+                };
+              }
+              return page;
+            });
+
+            return {
+              ...oldData,
+              pages: newPages,
+            };
+          }
+        );
 
         // 2. SUPPRIMER le message temporaire correspondant dans sentMessages
-        // C'est ici que "SentMessage" disparaît une fois le succès confirmé
         if (data.tempId) {
           setSentMessages((prev) => prev.filter((msg) => msg.tempId !== data.tempId));
         }
