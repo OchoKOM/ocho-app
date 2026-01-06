@@ -154,7 +154,7 @@ export function DeletionPlaceholder({
             </div>
           </button>
 
-          <span className="z-10 italic tracking-wider">Suppression...</span>
+          <span className="z-10 italic tracking-wider">{t("deleting")}</span>
         </div>
       </div>
     </div>
