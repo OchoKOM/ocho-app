@@ -828,7 +828,7 @@ function SendingMessage({ content, status, onRetry }: SendingMessageProps) {
                   className={cn(
                     "w-fit select-none rounded-3xl px-4 py-2 transition-all duration-300 *:font-bold",
                     status === "sending"
-                      ? "cursor-wait bg-primary/70 text-primary-foreground opacity-80"
+                      ? "cursor-wait bg-[#007AFF]/70 text-emerald-50 opacity-80"
                       : "",
                     status === "error"
                       ? "border border-destructive/50 bg-destructive/10 text-destructive"

@@ -26,9 +26,9 @@ type MessageProps = {
 };
 
 // --- SOUS-COMPOSANT DE SURBRILLANCE ---
-function HighlightText({ text, highlight }: { text: string; highlight?: string }) {
+function HighlightText({ text, highlight, isOwner }: { text: string; highlight?: string, isOwner: boolean }) {
   if (!highlight || !highlight.trim()) {
-    return <>{text}</>;
+    return <Linkify className={cn(isOwner && "font-semibold text-[#001645]")}>{text}</Linkify>;
   }
 
   const safeHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -39,10 +39,11 @@ function HighlightText({ text, highlight }: { text: string; highlight?: string }
       {parts.map((part, i) =>
         part.toLowerCase() === highlight.toLowerCase() ? (
           <span key={i} className="bg-amber-500/50 p-0 rounded-[8px] px-[1px] leading-none border border-amber-500 h-fit">
-            {part}
+            <Linkify className={cn(isOwner && "font-semibold text-[#001645]")}>{part}</Linkify>
           </span>
         ) : (
-          part
+          <Linkify key={i} className={cn(isOwner && "font-semibold text-[#001645]")}>{part}</Linkify>
+          
         )
       )}
     </>
@@ -183,7 +184,7 @@ export const MessageBubbleContent = ({
     <div className={cn("relative w-fit", isClone && "h-full")}>
       <Linkify
         className={cn(
-          isOwner && "font-semibold text-emerald-300 dark:text-white",
+          isOwner && "font-semiboldtext-[#001645]",
         )}
       >
         <div
@@ -192,7 +193,7 @@ export const MessageBubbleContent = ({
           className={cn(
             "w-fit select-none rounded-3xl px-4 py-2 transition-all duration-200 *:font-bold",
             isOwner
-              ? "bg-primary text-primary-foreground dark:bg-indigo-800 dark:text-indigo-100"
+              ? "bg-primary text-primary-foreground bg-[#007AFF] text-white"
               : "bg-primary/10",
             !message.content &&
               "bg-transparent text-muted-foreground outline outline-2 outline-muted-foreground",
@@ -200,7 +201,7 @@ export const MessageBubbleContent = ({
           )}
         >
           {message.content ? (
-            <HighlightText text={message.content} highlight={highlight} />
+            <HighlightText text={message.content} highlight={highlight} isOwner={isOwner} />
           ) : (
             <span className="italic">{unavailableMessage}</span>
           )}
