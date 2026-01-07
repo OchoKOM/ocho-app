@@ -39,6 +39,7 @@ import { MessageType } from "@prisma/client";
 import Linkify from "@/components/Linkify";
 import UserAvatar from "@/components/UserAvatar";
 import { createPortal } from "react-dom";
+import Time from "@/components/Time"; // Import du composant Time modifié
 
 interface ChatProps {
   roomId: string | null;
@@ -56,29 +57,37 @@ interface SentMessageState {
   status: "sending" | "error";
 }
 
-// --- FONCTION UTILITAIRE DE CLUSTERING ---
-// Cette fonction regroupe les messages par expéditeur, avec une limite de 5 messages par groupe.
-// Note : Les messages arrivent généralement du plus récent au plus ancien dans ce type de liste inversée.
+// --- FONCTION UTILITAIRE DE CLUSTERING AVANCÉE ---
+const MAX_TIME_DIFF = 20 * 60 * 1000; // 20 minutes en millisecondes
+
 function groupMessages(messages: MessageData[], limit: number = 5) {
   const groups: MessageData[][] = [];
   let currentGroup: MessageData[] = [];
-
   messages.forEach((msg, index) => {
-    // Si c'est le tout premier message de la boucle
     if (currentGroup.length === 0) {
       currentGroup.push(msg);
       return;
     }
-
-    const prevMsg = currentGroup[currentGroup.length - 1];
     
-    // Vérification : Même expéditeur ? Type CONTENT ? Pas plus de 5 messages ?
-    // On vérifie aussi que ce n'est pas un message système (NEWMEMBER, etc.) pour éviter de les grouper bizarrement
-    const isSameSender = prevMsg.senderId === msg.senderId;
-    const isContent = msg.type === "CONTENT" && prevMsg.type === "CONTENT";
+    const newerMsg = currentGroup[currentGroup.length - 1];
+    
+    const isSameSender = newerMsg.senderId === msg.senderId;
+    
+    const isContent = msg.type === "CONTENT" && newerMsg.type === "CONTENT";
+    
     const isNotFull = currentGroup.length < limit;
+    
+    const date1 = new Date(msg.createdAt);
+    const date2 = new Date(newerMsg.createdAt);
+    const isSameDay = 
+      date1.getDate() === date2.getDate() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getFullYear() === date2.getFullYear();
 
-    if (isSameSender && isContent && isNotFull) {
+    const diffTime = Math.abs(date2.getTime() - date1.getTime());
+    const isCloseInTime = diffTime < MAX_TIME_DIFF;
+
+    if (isSameSender && isContent && isNotFull && isSameDay && isCloseInTime) {
       currentGroup.push(msg);
     } else {
       // On ferme le groupe actuel et on en commence un nouveau
@@ -93,6 +102,17 @@ function groupMessages(messages: MessageData[], limit: number = 5) {
   }
 
   return groups;
+}
+
+// --- NOUVEAU COMPOSANT : HEADER DE DATE ---
+function DateHeader({ date }: { date: Date | string }) {
+  return (
+    <div className="flex w-full justify-center py-4">
+      <div className="rounded-full bg-muted/50 border border-border px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm">
+        <Time time={new Date(date)} calendar />
+      </div>
+    </div>
+  );
 }
 
 
@@ -166,8 +186,6 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
           (oldData) => {
             if (!oldData) return oldData;
 
-            // On clone les pages pour l'immutabilité
-            // On suppose que la première page (index 0) contient les messages les plus récents
             const newPages = oldData.pages.map((page, index) => {
               if (index === 0) {
                 return {
@@ -459,33 +477,63 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
   };
 
   // --- RENDER HELPER POUR LES GROUPES ---
-  const renderCluster = (group: MessageData[], groupIndex: number) => {
+  const renderCluster = (group: MessageData[], groupIndex: number, allGroups: MessageData[][]) => {
+    const oldestMessageInGroup = group[group.length - 1];
+    
+    // Pour savoir si on affiche le header de date, on regarde le groupe suivant (qui est plus ancien dans le tableau de groupes)
+    const nextGroup = allGroups[groupIndex + 1];
+    const oldestMessageInNextGroup = nextGroup ? nextGroup[0] : null; // On prend le premier (le plus récent) du groupe suivant pour comparer les dates frontières
+
+    let showDateHeader = false;
+
+    if (!nextGroup) {
+      // C'est le tout dernier groupe de la liste (le plus vieux chargé) -> On affiche toujours la date
+      showDateHeader = true;
+    } else if (oldestMessageInNextGroup) {
+      const currentDate = new Date(oldestMessageInGroup.createdAt);
+      const prevDate = new Date(oldestMessageInNextGroup.createdAt);
+
+      if (
+        currentDate.getDate() !== prevDate.getDate() ||
+        currentDate.getMonth() !== prevDate.getMonth() ||
+        currentDate.getFullYear() !== prevDate.getFullYear()
+      ) {
+        showDateHeader = true;
+      }
+    }
+
+    // Rendu du cluster
     return (
-      <div key={groupIndex} className="flex flex-col-reverse w-full">
-        {group.map((msg, msgIndex) => {
-          const isVisuallyLast = msgIndex === 0;
-          const isFirstInCluster = msgIndex === group.length - 1;
-          const isMiddleInCluster = msgIndex > 0 && msgIndex < group.length - 1;
-          const isOnlyMessageInCluster = group.length === 1;
+      <div key={`cluster-${groupIndex}`} className="contents">
+            
+        <div className="flex flex-col-reverse w-full">
+          {group.map((msg, msgIndex) => {
+            const isVisuallyLast = msgIndex === 0; // Le dernier envoyé (bas)
+            const isFirstInCluster = msgIndex === group.length - 1; // Le premier envoyé (haut)
+            const isMiddleInCluster = msgIndex > 0 && msgIndex < group.length - 1;
+            const isOnlyMessageInCluster = group.length === 1;
+            const showTime =
+              (groupIndex === clusteredMessages.length - 1 && msgIndex === group.length - 1) ||
+              (groupIndex % 5 === 0 && msgIndex === 0 && groupIndex !== 0);
 
-          const showTime =
-            groupIndex === clusteredMessages.length - 1 && msgIndex === group.length - 1 ||
-            (groupIndex % 5 === 0 && msgIndex === 0 && groupIndex !== 0);
+            return (
+              <Message
+                key={msg.id || msgIndex}
+                message={msg}
+                room={room}
+                showTime={showTime}
+                highlight={searchQuery}
+                isLastInCluster={isVisuallyLast} 
+                isFirstInCluster={isFirstInCluster}
+                isMiddleInCluster={isMiddleInCluster}
+                isOnlyMessageInCluster={isOnlyMessageInCluster}
+              />
+            );
+          })}
+        </div>
 
-          return (
-            <Message
-              key={msg.id || msgIndex}
-              message={msg}
-              room={room}
-              showTime={showTime}
-              highlight={searchQuery}
-              isLastInCluster={isVisuallyLast} 
-              isFirstInCluster={isFirstInCluster}
-              isMiddleInCluster={isMiddleInCluster}
-              isOnlyMessageInCluster={isOnlyMessageInCluster}
-            />
-          );
-        })}
+        {/* HEADER DE DATE : Placé ici pour apparaître au-dessus du groupe en flex-reverse */}
+        {showDateHeader && <DateHeader date={oldestMessageInGroup.createdAt} />}
       </div>
     );
   };
@@ -569,7 +617,7 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
               <TypingIndicator typingUsers={typingUsers} />
 
               {/* Messages "live" reçus via socket avant refresh (filtrés) */}
-              {clusteredNewMessages.map(renderCluster)}
+              {clusteredNewMessages.map((group, i) => renderCluster(group, i, clusteredNewMessages))}
 
               {/* Messages en cours d'envoi (échecs ou loading) - Géré par SentMessage */}
               {/* Note: On ne clusterise pas les messages "sending" pour l'instant car ils ont un statut spécial */}
@@ -583,7 +631,7 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
               ))}
 
               {/* MESSAGES CONFIRMÉS (Venant de la DB via React Query - Filtrés) */}
-              {clusteredMessages.map(renderCluster)}
+              {clusteredMessages.map((group, i) => renderCluster(group, i, clusteredMessages))}
             </>
           )}
         </InfiniteScrollContainer>

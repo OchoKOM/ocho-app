@@ -27,7 +27,7 @@ export default function Time({
   // Récupérer la langue de l'utilisateur
   const { language: lang } = useLanguage();
 
-  const timeFormatter = new TimeFormatter(time, { lang, long, full, relative });
+  const timeFormatter = new TimeFormatter(time, { lang, long, full, relative, calendar, withTime });
   const formatTime = timeFormatter.format();
 
   const formattedTime = !(lowerCase || upperCase)
