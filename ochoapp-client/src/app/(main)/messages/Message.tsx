@@ -216,7 +216,7 @@ export const MessageBubbleContent = ({
           onClick={!isClone ? toggleCheck : undefined}
           onContextMenu={!isClone ? onContextMenu : (e) => e.preventDefault()}
           className={cn(
-            "relative w-fit rounded-3xl select-none px-4 py-2 pr-7 pb-2.5 transition-all duration-200",
+            "relative w-fit rounded-3xl select-none px-4 py-2 pr-8 pb-2.5 transition-all duration-200",
             isOwner
               ? "bg-[#007AFF] text-white"
               : "bg-primary/10",
