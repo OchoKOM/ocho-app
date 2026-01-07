@@ -11,16 +11,16 @@ import { RoomData, UserData, UsersPage } from "@/lib/types";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { t } from "@/context/LanguageContext";
-import { useAddMemberMutation } from "./mutations";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import kyInstance from "@/lib/ky";
-import { MemberType } from "@prisma/client";
 import { XIcon, SearchIcon, Frown, Meh } from "lucide-react";
 import LoadingButton from "../LoadingButton";
 import { Skeleton } from "../ui/skeleton";
 import UserAvatar from "../UserAvatar";
 import UsersList from "./UsersList";
 import { Input } from "../ui/input";
+import { useSocket } from "@/components/providers/SocketProvider"; // Import du socket
+import { useToast } from "../ui/use-toast";
 
 interface AddMemberDialogProps {
   room: RoomData;
@@ -34,7 +34,7 @@ export default function AddMemberDialog({
   children,
 }: AddMemberDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const {addMembers} = t();
+  const { addMembers } = t();
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -55,7 +55,6 @@ export default function AddMemberDialog({
   );
 }
 
-
 interface AddMemberFormProps {
   onAdd: () => void;
   room: RoomData;
@@ -65,11 +64,12 @@ export function AddMemberForm({ onAdd, room }: AddMemberFormProps) {
   const [query, setQuery] = useState<string>("");
   const [inputValue, setInputValue] = useState<string>("");
   const [selectedUsers, setSelectedUsers] = useState<UserData[]>([]);
+  const [loading, setLoading] = useState(false); // État de chargement local
+  
   const queryClient = useQueryClient();
-
+  const { socket } = useSocket(); // Hook socket
+  const { toast } = useToast();
   const { add, availableUsers, noAvailableUser, dataError, searchUsers } = t();
-
-  const mutation = useAddMemberMutation();
 
   const addUser = (user: UserData) => {
     if (!selectedUsers.find((selected) => selected.id === user.id)) {
@@ -121,54 +121,32 @@ export function AddMemberForm({ onAdd, room }: AddMemberFormProps) {
 
   const users = data?.pages?.flatMap((page) => page?.users) || [];
 
-  const handleUserSelect = (user: UserData) => {
-    if (selectedUsers.some((u) => u.id === user.id)) {
-      setSelectedUsers(selectedUsers.filter((u) => u.id !== user.id));
-    } else {
-      setSelectedUsers([...selectedUsers, user]);
-    }
-  };
-
   const handleSubmit = () => {
-    mutation.mutate(
-      {
-        roomId: room.id,
-        members: selectedUsers.map((member) => member.id),
-      },
-      {
-        onSuccess: ({ newMembersList }) => {
-          const newMembers = newMembersList
-            .map((member) => ({
-              user: {
-                id: member.user?.id ?? "", // Fournit une valeur par défaut si null ou undefined
-                username: member.user?.username ?? "",
-                displayName: member.user?.displayName ?? "",
-                avatarUrl: member.user?.avatarUrl ?? null,
-                bio: member.user?.bio ?? null,
-                createdAt: member.user?.createdAt ?? new Date(), // Fournit une valeur par défaut
-                followers: member.user?.followers || [],
-                _count: {
-                  followers: member.user?._count?.followers ?? 0, // Valeur par défaut si undefined
-                  posts: member.user?._count?.posts ?? 0, // Valeur par défaut si undefined
-                },
-              },
-              userId: member.userId ?? "",
-              type: "MEMBER" as MemberType, // Assurez-vous que "MEMBER" est bien une valeur valide pour MemberType
-              joinedAt: new Date(),
-            }))
-            .filter(
-              (member) => !selectedUsers.some((u) => u.id === member.userId),
-            );
+    if (!socket) return;
+    setLoading(true);
 
-          setSelectedUsers([]);
-          setQuery("");
-          const queryKey = ["chat", room.id];
+    const membersIds = selectedUsers.map((member) => member.id);
 
-          queryClient.invalidateQueries({ queryKey });
-          onAdd();
-        },
-      },
-    );
+    socket.emit("group_add_members", { roomId: room.id, members: membersIds }, (res: any) => {
+      setLoading(false);
+      
+      if (res.success) {
+        // Optionnel : Mise à jour optimiste ou invalider la query comme avant
+        // Le socket enverra "room_updated" ou "added_to_group" mais on invalide ici pour être sûr
+        const queryKey = ["chat", room.id];
+        queryClient.invalidateQueries({ queryKey });
+
+        setSelectedUsers([]);
+        setQuery("");
+        onAdd();
+      } else {
+        console.error(res.error);
+        toast({
+          variant: "destructive",
+          description: res.error || dataError,
+        });
+      }
+    });
   };
 
   return (
@@ -197,7 +175,7 @@ export function AddMemberForm({ onAdd, room }: AddMemberFormProps) {
           <div className="sticky top-0 flex w-full animate-scale gap-2 px-2">
             <LoadingButton
               onClick={handleSubmit}
-              loading={mutation.isPending}
+              loading={loading}
               disabled={!selectedUsers.length}
               className="w-full rounded-lg"
             >

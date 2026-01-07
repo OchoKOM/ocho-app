@@ -6,15 +6,18 @@ import dotenv from "dotenv";
 import { MessageType, PrismaClient } from "@prisma/client";
 import cookieParser from "cookie-parser";
 import chalk from "chalk";
-import { getChatRoomDataInclude, getMessageDataInclude } from "./types";
+import { getChatRoomDataInclude, getMessageDataInclude, getUserDataSelect } from "./types";
 import {
+  addAdminSchema,
+  addMemberSchema,
   getFormattedRooms,
   getMessageReactions,
   getMessageReads,
+  groupManagment,
+  memberActionSchema,
   socketHandler,
   validateSession,
 } from "./utils";
-import path from "path";
 
 dotenv.config();
 
@@ -36,7 +39,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.get("/", (req, res) => {
-  res.json({message:"Hello from the server"});
+  res.json({ message: "Hello from the server" });
 });
 
 app.post("/api/auth/session", validateSession);
@@ -67,12 +70,13 @@ io.on("connection", async (socket) => {
 
   socket.join(userId);
 
+  // -- GESTION DES GROUPES -- //
+  groupManagment(io, socket, { userId, username, displayName, avatarUrl });
+
   socket.on(
     "start_chat",
     async ({ targetUserId, isGroup, name, membersIds }) => {
       try {
-        // 1. Nettoyage et Préparation des membres
-        // On s'assure d'avoir un tableau propre, sans doublons et sans valeurs null/undefined (cause du membre fantôme)
         let rawMembers = isGroup 
           ? [...(membersIds || []), userId] 
           : [userId, targetUserId];

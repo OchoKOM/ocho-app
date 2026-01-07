@@ -2,11 +2,14 @@ import { RoomData, UserData } from "@/lib/types";
 import { useSession } from "../SessionProvider";
 import GroupAvatar from "@/components/GroupAvatar";
 import UserAvatar from "@/components/UserAvatar";
-import { useEffect, useState } from "react";
+import { PropsWithChildren, useEffect, useState } from "react";
 import {
   ArrowLeft,
   ChevronLeft,
+  PlusCircle,
   Settings2,
+  ShieldBan,
+  ShieldPlusIcon,
   UserCircle2,
   UserRoundPlus,
   X,
@@ -16,17 +19,23 @@ import { Button } from "@/components/ui/button";
 import Time from "@/components/Time";
 import OchoLink from "@/components/ui/OchoLink";
 import AddMemberDialog from "@/components/messages/AddMemberDialog";
-import GroupUserPopover from "@/components/messages/GroupUserPopover";
 import { useActiveRoom } from "@/context/ChatContext";
 import LeaveGroupDialog from "@/components/messages/LeaveGroupDialog";
 import GroupChatSettingsDialog from "@/components/messages/GroupChatSettingsDialog";
 import { cn } from "@/lib/utils";
 import { t } from "@/context/LanguageContext";
 import Verified from "@/components/Verified";
-import { VerifiedType } from "@prisma/client";
+import { MemberType, VerifiedType } from "@prisma/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import kyInstance from "@/lib/ky";
 import { Skeleton } from "@/components/ui/skeleton";
+import LoadingButton from "@/components/LoadingButton";
+import { useAddAdminMutation, useRestoreMemberMutation } from "@/components/messages/mutations";
+import { useToast } from "@/components/ui/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import BanDialog from "@/components/messages/BanDialog";
+import MessageButton from "@/components/messages/MessageButton";
+import RemoveMemberDialog from "@/components/messages/RemoveMemberDialog";
 
 interface ChatHeaderProps {
   roomId: string | null;
@@ -661,5 +670,303 @@ export default function RoomHeader({
         )}
       </div>
     </div>
+  );
+}
+
+interface AdminButtonProps {
+  member: string;
+  type: MemberType;
+  room: RoomData;
+}
+
+export function AdminButton({
+  member,
+  type,
+  room,
+}: AdminButtonProps) {
+  const [currentType, setCurrentType] = useState<string>(type);
+  const queryClient = useQueryClient();
+
+  const { user: loggedInUser } = useSession();
+  const { makeGroupAdmin, dismissAsAdmin } = t();
+
+  const roomId = room.id;
+
+  const mutation = useAddAdminMutation();
+
+  const members = room.members;
+
+  //  get the loggedin user values in members
+  const loggedMember = members.find(
+    (member) => member.userId === loggedInUser.id,
+  );
+
+  const isAdmin = currentType === "ADMIN";
+  const isLoggedAuthorized =
+    type !== "OWNER" &&
+    (loggedMember?.type === "ADMIN" || loggedMember?.type === "OWNER");
+
+  function handleSubmit() {
+    const initialType = currentType;
+    mutation.mutate(
+      {
+        roomId,
+        member,
+      },
+      {
+        onSuccess: ({ newRoomMember }) => {
+          if (newRoomMember.type !== initialType) {
+            setCurrentType(newRoomMember.type);
+
+            const queryKey = ["chat", roomId];
+
+            queryClient.invalidateQueries({ queryKey });
+          }
+        },
+        onError(error) {
+          setCurrentType(initialType);
+          console.error(error);
+        },
+      },
+    );
+  }
+  return (
+    isLoggedAuthorized && (
+      <LoadingButton
+        loading={mutation.isPending}
+        variant={isAdmin ? "outline" : "default"}
+        className={cn(
+          "flex w-full justify-center gap-3",
+          !isAdmin && "text-primary-foreground",
+        )}
+        onClick={handleSubmit}
+      >
+        {isAdmin ? (
+          <>
+            <ShieldBan size={24} className="fill-primary-foreground" />{" "}
+            {dismissAsAdmin}
+          </>
+        ) : (
+          <>
+            <ShieldPlusIcon size={24} /> {makeGroupAdmin}
+          </>
+        )}
+      </LoadingButton>
+    )
+  );
+}
+
+interface RestoreMemberButtonProps {
+  memberId: string;
+  room: RoomData;
+  children: React.ReactNode;
+}
+
+export function RestoreMemberButton({
+  memberId,
+  room,
+  children,
+}: RestoreMemberButtonProps) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { groupRestoreSuccess } = t()
+
+  const mutation = useRestoreMemberMutation();
+  const roomId = room.id;
+
+  const member = room.members.find((member) => member.userId === memberId);
+
+  function handleSubmit() {
+    mutation.mutate(
+      {
+        roomId,
+        memberId,
+      },
+      {
+        onSuccess: () => {
+          const queryKey = ["chat", roomId];
+
+          queryClient.invalidateQueries({ queryKey });
+
+          toast({
+            description: groupRestoreSuccess
+            .replace("[name]", member?.user?.displayName || "un utilisateur")
+            .replace("[group]", room.name || "ce groupe"),
+          });
+        },
+        onError(error) {
+          console.error(error);
+        },
+      },
+    );
+  }
+  return (
+    <LoadingButton
+      loading={mutation.isPending}
+      className="flex w-full justify-center gap-3"
+      onClick={handleSubmit}
+    >
+      {children}
+    </LoadingButton>
+  );
+}
+
+interface GroupUserPopover extends PropsWithChildren {
+  user: UserData;
+  type: MemberType;
+  room: RoomData;
+}
+
+export function GroupUserPopover({
+  user,
+  type,
+  room,
+  children,
+}: GroupUserPopover) {
+  const { user: loggedInUser } = useSession();
+  const isMember = type !== "OLD" && type !== "BANNED";
+  const member = room.members.find((member) => member.userId === user.id);
+
+  const { groupAdmin, groupOwner, joined, leftSince, profile, you } = t();
+
+  const joinedAt: Date | null = member?.joinedAt ?? null;
+  const leftAt: Date | null = member?.leftAt ?? null;
+
+  const members = room.members;
+
+  const expiresAt = member?.user?.verified?.[0]?.expiresAt;
+  const canExpire = !!(expiresAt ? new Date(expiresAt).getTime() : null);
+
+  const expired = canExpire && expiresAt ? new Date() < expiresAt : false;
+
+  const isVerified = !!member?.user?.verified?.[0] && !expired;
+  const verifiedType: VerifiedType | undefined = isVerified
+    ? member?.user?.verified?.[0]?.type
+    : undefined;
+
+  const verifiedCheck = isVerified ? (
+    <Verified type={verifiedType} prompt={false} />
+  ) : null;
+
+  //  get the loggedin user values in members
+  const loggedMember = members.find(
+    (member) => member.userId === loggedInUser.id,
+  );
+  const isLoggedAdmin =
+    loggedMember?.type === "ADMIN" || loggedMember?.type === "OWNER";
+  const isBanned = type === "BANNED";
+  const isOld = type === "OLD";
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild className="cursor-pointer">
+        {children ?? (
+          <li className="cursor-pointer px-4 py-2 active:bg-muted/30">
+            <div className="flex items-center space-x-2">
+              <UserAvatar userId={user?.id} avatarUrl={user?.avatarUrl} size={35} />
+              <div className="flex-1 select-none">
+                <p className={cn(isVerified && "flex items-center gap-1")}>
+                  {user.id === loggedInUser?.id ? you : user?.displayName}
+                  {verifiedCheck}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  @{user?.username}
+                </p>
+              </div>
+              {isMember && type !== "MEMBER" && (
+                <span className="rounded bg-primary/30 p-[2px] text-xs">
+                  {type === "ADMIN" ? groupAdmin : groupOwner}
+                </span>
+              )}
+            </div>
+          </li>
+        )}
+      </PopoverTrigger>
+      <PopoverContent>
+        <div className="flex flex-col gap-3">
+          <div className="divide-y-2">
+            <div
+              className={`flex max-w-80 items-center gap-3 break-words px-1 py-2.5 md:min-w-52`}
+            >
+              <div className={`flex items-center justify-center gap-2`}>
+                <OchoLink href={`/users/${user.username}`}>
+                  <UserAvatar userId={user.id} avatarUrl={user.avatarUrl} size={70} />
+                </OchoLink>
+              </div>
+              <OchoLink href={`/users/${user.username}`} className="text-inherit">
+                <div
+                  className={cn(
+                    "text-lg font-semibold hover:underline",
+                    isVerified && "flex items-center gap-1",
+                  )}
+                >
+                  {user.displayName}
+                  {verifiedCheck}
+                </div>
+                <div className="text-muted-foreground hover:underline">
+                  @{user.username}
+                </div>
+              </OchoLink>
+            </div>
+            {user.bio && (
+              <Linkify>
+                <p className="line-clamp-4 whitespace-pre-line p-2">
+                  {user.bio}
+                </p>
+              </Linkify>
+            )}
+            {joinedAt && (
+              <p className="px-3 text-sm font-semibold text-muted-foreground">
+                {joined} <Time time={joinedAt} long />
+              </p>
+            )}
+            {joinedAt && leftAt && leftAt > joinedAt && (
+              <p className="px-3 text-sm font-semibold text-muted-foreground">
+                {leftSince} <Time time={leftAt} long />
+              </p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <OchoLink href={`/users/${user.username}`} className="text-inherit">
+              <Button variant="secondary" className="flex w-full gap-1">
+                <UserCircle2 /> {profile}
+              </Button>
+            </OchoLink>
+            <MessageButton userId={user.id} />
+          </div>
+          {user.id !== loggedInUser.id &&
+            loggedMember?.type != "MEMBER" &&
+            isMember && (
+              <>
+                {isLoggedAdmin && type !== "OWNER" && (
+                  <>
+                    <AdminButton
+                      type={type}
+                      room={room}
+                      member={user.id}
+                    />
+                    <RemoveMemberDialog memberId={user.id} room={room} />
+                    <BanDialog memberId={user.id} room={room} />
+                  </>
+                )}
+              </>
+            )}
+          {!isMember && isLoggedAdmin && (
+            <>
+              {isBanned && (
+                <RestoreMemberButton memberId={user.id} room={room}>
+                  <PlusCircle size={24} /> Retirer la suspention
+                </RestoreMemberButton>
+              )}
+              {isOld && (
+                <RestoreMemberButton memberId={user.id} room={room}>
+                  <PlusCircle size={24} /> Reintegrer
+                </RestoreMemberButton>
+              )}
+            </>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

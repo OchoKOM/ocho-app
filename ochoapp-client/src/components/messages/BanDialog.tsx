@@ -12,8 +12,8 @@ import {
 import { Button } from "../ui/button";
 import { CircleX } from "lucide-react";
 import LoadingButton from "../LoadingButton";
-import { useBanMemberMutation } from "./mutations";
 import { t } from "@/context/LanguageContext";
+import { useSocket } from "@/components/providers/SocketProvider";
 
 interface BanDialogProps {
   memberId: string;
@@ -22,8 +22,10 @@ interface BanDialogProps {
 
 export default function BanDialog({ memberId, room }: BanDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { socket } = useSocket();
   const {
     appUser,
     banFromGroup,
@@ -39,35 +41,34 @@ export default function BanDialog({ memberId, room }: BanDialogProps) {
     setIsOpen(false);
   }
 
-  const mutation = useBanMemberMutation();
   const roomId = room.id;
-
   const member = room.members.find((member) => member.userId === memberId);
 
   function handleSubmit() {
-    mutation.mutate(
-      {
-        roomId,
-        memberId,
-      },
-      {
-        onSuccess: () => {
-          const queryKey = ["chat", roomId];
+    if (!socket) return;
+    setLoading(true);
 
-          queryClient.invalidateQueries({ queryKey });
+    socket.emit("group_ban_member", { roomId, memberId }, (res: any) => {
+      setLoading(false);
+      
+      if (res.success) {
+        const queryKey = ["chat", roomId];
+        queryClient.invalidateQueries({ queryKey });
 
-          toast({
-            description: groupBanSuccess
-              .replace("[name]", member?.user?.displayName || "un utilisateur")
-              .replace("[group]", room.name || "ce groupe"),
-          });
-          onClose();
-        },
-        onError(error) {
-          console.error(error);
-        },
-      },
-    );
+        toast({
+          description: groupBanSuccess
+            .replace("[name]", member?.user?.displayName || "un utilisateur")
+            .replace("[group]", room.name || "ce groupe"),
+        });
+        onClose();
+      } else {
+        console.error(res.error);
+        toast({
+          variant: "destructive",
+          description: res.error || "Erreur lors du bannissement",
+        });
+      }
+    });
   }
 
   return (
@@ -93,7 +94,7 @@ export default function BanDialog({ memberId, room }: BanDialogProps) {
             {cancel}
           </Button>
           <LoadingButton
-            loading={mutation.isPending}
+            loading={loading}
             variant="destructive"
             onClick={handleSubmit}
           >

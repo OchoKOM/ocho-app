@@ -17,34 +17,6 @@ import {
 import { t } from "@/context/LanguageContext";
 
 
-export function useDeleteMessageMutation() {
-  const { toast } = useToast();
-  const { unableToDeleteMessage } = t();
-
-  const queryClient = useQueryClient();
-
-  const mutation = useMutation({
-    mutationFn: deleteMessage,
-    onSuccess: async (deletedMessage) => {
-      const queryKey: QueryKey = ["messages", deletedMessage.roomId];
-
-      const readsKey: QueryKey = ["reads-info", deletedMessage.id];
-
-      await queryClient.cancelQueries({ queryKey: readsKey });
-      await queryClient.invalidateQueries({ queryKey });
-    },
-    onError(error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        description: unableToDeleteMessage,
-      });
-    },
-  });
-
-  return mutation;
-}
-
 export function useAddMemberMutation() {
   const { toast } = useToast();
   const { somethingWentWrong, groupAddError, groupAddSuccess } = t()
