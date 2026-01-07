@@ -465,7 +465,7 @@ export default function SideBar({
         )}
       </InfiniteScrollContainer>
 
-      <div className={cn("fixed bottom-20 right-5 flex gap-2 sm:absolute", selectedRoomId && "max-sm:-translate-x-[100vw]")}>
+      <div className={cn("fixed bottom-20 right-5 flex gap-2 sm:absolute", activeRoomId && "max-sm:-translate-x-[100vw]")}>
         <div
           className="flex aspect-square h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-muted-foreground/60 text-muted shadow-md hover:bg-muted-foreground hover:shadow-lg hover:shadow-muted-foreground/30 dark:bg-muted dark:text-muted-foreground sm:hidden"
           onClick={() => setIsSearchOpen(true)}

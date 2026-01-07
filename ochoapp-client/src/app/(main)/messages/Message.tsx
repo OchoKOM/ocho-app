@@ -216,7 +216,7 @@ export const MessageBubbleContent = ({
           onClick={!isClone ? toggleCheck : undefined}
           onContextMenu={!isClone ? onContextMenu : (e) => e.preventDefault()}
           className={cn(
-            "relative w-fit rounded-3xl select-none px-4 py-2 pr-6 pb-6 transition-all duration-200",
+            "relative w-fit rounded-3xl select-none px-4 py-2 pr-6 pb-2.5 transition-all duration-200",
             isOwner
               ? "bg-[#007AFF] text-white"
               : "bg-primary/10",
@@ -239,7 +239,7 @@ export const MessageBubbleContent = ({
           {createdAt && (
             <time
               className={cn(
-                "absolute bottom-0 right-2 block text-[11px] opacity-70 text-right",
+                "absolute bottom-0.5 right-2.5 block text-[11px] opacity-70 text-right",
                 isOwner ? "text-white/70" : "text-muted-foreground"
               )}
             >
