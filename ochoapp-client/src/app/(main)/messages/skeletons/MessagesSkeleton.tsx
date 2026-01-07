@@ -25,7 +25,7 @@ function MessageLoadingSkeleton({
 }: MessageLoadingSkeletonProps) {
   const sizes = {
     sm: "h-8 w-[15%]",
-    md: "h-15 w-[25%]",
+    md: "h-16 w-[25%]",
     lg: "h-18 w-[45%]",
     xl: "h-20 w-[55%]",
   };
