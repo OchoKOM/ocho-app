@@ -71,26 +71,31 @@ io.on("connection", async (socket) => {
     "start_chat",
     async ({ targetUserId, isGroup, name, membersIds }) => {
       try {
-        let members = isGroup
-          ? [...membersIds, userId]
+        // 1. Nettoyage et Préparation des membres
+        // On s'assure d'avoir un tableau propre, sans doublons et sans valeurs null/undefined (cause du membre fantôme)
+        let rawMembers = isGroup 
+          ? [...(membersIds || []), userId] 
           : [userId, targetUserId];
-        members = [...new Set(members)];
+        
+        // Supprime les doublons et les valeurs falsy (null, undefined, chaine vide)
+        const uniqueMemberIds = [...new Set(rawMembers)].filter((id) => id);
 
-        if (isGroup && members.length < 2) {
+        if (isGroup && uniqueMemberIds.length < 2) {
           socket.emit(
             "error_message",
-            "Un groupe doit avoir au moins 2 membres."
+            "Un groupe doit avoir au moins 2 membres valides."
           );
           return;
         }
 
+        // Vérification de conversation existante (seulement pour le 1-on-1)
         if (!isGroup) {
           const existingRoom = await prisma.room.findFirst({
             where: {
               isGroup: false,
               AND: [
-                { members: { some: { userId: members[0] } } },
-                { members: { some: { userId: members[1] } } },
+                { members: { some: { userId: uniqueMemberIds[0] } } },
+                { members: { some: { userId: uniqueMemberIds[1] } } },
               ],
             },
             include: getChatRoomDataInclude(),
@@ -103,27 +108,35 @@ io.on("connection", async (socket) => {
         }
 
         const newRoom = await prisma.$transaction(async (tx) => {
+          // 2. Création de la room avec rôles explicites
           const room = await tx.room.create({
             data: {
               name: isGroup ? name : null,
               isGroup: isGroup,
               members: {
-                create: members.map((id) => ({ userId: id })),
+                create: uniqueMemberIds.map((id) => ({
+                  userId: id,
+                  // Si c'est le créateur du groupe, on le met OWNER, sinon MEMBER
+                  type: (isGroup && id === userId) ? "OWNER" : "MEMBER",
+                })),
               },
             },
             include: getChatRoomDataInclude(),
           });
 
+          // 3. Message système de création
           const message = await tx.message.create({
             data: {
               content: "created",
               roomId: room.id,
-              senderId: isGroup ? userId : null,
+              senderId: userId, // Important: le créateur est l'expéditeur du message système
               type: "CREATE",
             },
+            include: getMessageDataInclude(userId) // On inclut les infos sender pour l'affichage
           });
 
-          for (const memberId of members) {
+          // 4. Mise à jour de LastMessage pour tous les membres
+          for (const memberId of uniqueMemberIds) {
             await tx.lastMessage.upsert({
               where: {
                 userId_roomId: { userId: memberId, roomId: room.id },
@@ -137,19 +150,29 @@ io.on("connection", async (socket) => {
             });
           }
 
+          // Retourne la room complète avec le premier message
           return { ...room, messages: [message] };
         });
         
-        // CORRECTION : On s'assure que le créateur rejoint immédiatement la room socket
+        // 5. Gestion des Sockets et Diffusion
         socket.join(newRoom.id);
         
-        members.forEach((memberId) => {
+        // On notifie tous les membres (sauf soi-même car on utilise room_ready)
+        uniqueMemberIds.forEach((memberId) => {
           if (memberId !== userId) {
+            // Mise à jour en temps réel pour les autres membres
             io.to(memberId).emit("new_room_created", newRoom);
+            
+            // Notification optionnelle "unread"
+            io.to(memberId).emit("unread_count_increment", {
+                roomId: newRoom.id,
+            });
           }
         });
 
+        // Réponse au créateur
         socket.emit("room_ready", newRoom);
+
       } catch (error) {
         console.error("Erreur start_chat:", error);
         socket.emit("error_message", "Impossible de créer la discussion.");
