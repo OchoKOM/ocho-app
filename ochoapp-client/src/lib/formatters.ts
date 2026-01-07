@@ -3,6 +3,7 @@ export interface TimeOptions {
   long?: boolean;
   full?: boolean;
   relative?: boolean;
+  withTime?: boolean;
 }
 
 export class TimeFormatter {
@@ -10,13 +11,14 @@ export class TimeFormatter {
   private lang: string;
   private long: boolean;
   private time: Date;
+  private withTime?: boolean = false;
   private relative: boolean;
   private currentDate: Date;
 
   // Le constructeur accepte maintenant soit un nombre, soit une instance de Date
   constructor(
     time: number | Date,
-    { lang = "en-US", long = true, full = true, relative = false }: TimeOptions,
+    { lang = "en-US", long = true, full = true, relative = false, withTime = false }: TimeOptions,
   ) {
     this.full = full;
     this.long = long;
@@ -143,6 +145,46 @@ export class TimeFormatter {
     }
 
     return formattedTime;
+  }
+  /**
+   * Mode Calendrier : "Aujourd'hui", "Hier" ou "07/01/2026".
+   */
+  private formatCalendar(): string {
+    const now = new Date();
+    const target = new Date(this.time);
+    
+    // On réinitialise les heures pour comparer uniquement les jours calendaires
+    const cleanNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const cleanTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+
+    const diffTime = cleanTarget.getTime() - cleanNow.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    // Si on est Aujourd'hui (0), Hier (-1) ou Demain (1)
+    if (Math.abs(diffDays) <= 1) {
+      const rtf = new Intl.RelativeTimeFormat(this.lang, { numeric: 'auto' });
+      let relativeString = rtf.format(diffDays, 'day');
+      
+      // Capitalisation de la première lettre (ex: "hier" -> "Hier")
+      relativeString = relativeString.charAt(0).toUpperCase() + relativeString.slice(1);
+
+      // Si l'option withTime est active, on ajoute l'heure (ex: "Hier à 14:00")
+      if (this.withTime) {
+         const timePart = new Intl.DateTimeFormat(this.lang, { timeStyle: 'short' }).format(this.time);
+         // Petite astuce pour une liaison naturelle selon la langue (simplifiée)
+         const separator = ', ';
+         return `${relativeString}${separator}${timePart}`;
+      }
+      return relativeString;
+    }
+
+    // Sinon, on retourne la date formatée courte (ex: 07/01/2026)
+    return new Intl.DateTimeFormat(this.lang, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      ...(this.withTime ? { hour: '2-digit', minute: '2-digit' } : {})
+    }).format(this.time);
   }
 
   formatRelativePeriod(

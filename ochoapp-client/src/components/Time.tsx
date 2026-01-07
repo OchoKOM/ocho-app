@@ -10,6 +10,8 @@ interface TimeProps {
   long?: boolean;
   lowerCase?: boolean;
   upperCase?: boolean;
+  calendar?: boolean;
+  withTime?: boolean;
 }
 
 export default function Time({
@@ -19,6 +21,8 @@ export default function Time({
   long = false,
   lowerCase = false,
   upperCase = false,
+  withTime = false,
+  calendar = false,
 }: TimeProps) {
   // Récupérer la langue de l'utilisateur
   const { language: lang } = useLanguage();

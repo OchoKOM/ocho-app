@@ -461,11 +461,8 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
   // --- RENDER HELPER POUR LES GROUPES ---
   const renderCluster = (group: MessageData[], groupIndex: number) => {
     return (
-      <div key={groupIndex} className="flex flex-col-reverse gap-0.5 w-full">
+      <div key={groupIndex} className="flex flex-col-reverse w-full">
         {group.map((msg, msgIndex) => {
-          // Dans une liste flex-col-reverse (inversée visuellement) :
-          // L'index 0 est l'élément le plus BAS (le plus récent du groupe).
-          // C'est donc LUI qui doit avoir l'avatar ("dernier message" visuellement).
           const isVisuallyLast = msgIndex === 0;
           const isFirstInCluster = msgIndex === group.length - 1;
           const isMiddleInCluster = msgIndex > 0 && msgIndex < group.length - 1;
@@ -948,7 +945,6 @@ export function TypingIndicator({ typingUsers = [] }: TypingIndicatorProps) {
         </div>
       )}
       <div className="relative flex w-full items-start gap-2">
-        {/* Container des Avatars (Stack avec limite) */}
         {typingUsers.length > 1 && (
           <div className="absolute left-0 top-full z-[2] flex h-8 -translate-y-[30%] items-center -space-x-2 overflow-hidden py-1">
             {visibleUsers.map((user, index) => (
@@ -961,7 +957,6 @@ export function TypingIndicator({ typingUsers = [] }: TypingIndicatorProps) {
               />
             ))}
 
-            {/* Badge pour le reste des personnes */}
             {hasMore && (
               <div className="z-10 flex h-6 w-6 animate-appear-r items-center justify-center rounded-full border-2 border-background bg-muted text-xs text-muted-foreground">
                 +{remainingCount}
@@ -970,9 +965,7 @@ export function TypingIndicator({ typingUsers = [] }: TypingIndicatorProps) {
           </div>
         )}
 
-        {/* Bulle animée */}
         <div className="group/message relative w-fit max-w-[75%] select-none">
-          {/* Label textuel dynamique - Adapté pour "User 1, User 2 et X autres" */}
           <div className="mb-1 ps-2 text-xs font-medium text-slate-500 transition-opacity dark:text-slate-400">
             {typingUsers.length === 1
               ? `${typingUsers[0].displayName.split(" ")[0]}`
