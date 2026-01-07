@@ -29,6 +29,7 @@ export class TimeFormatter {
       relative = false,
       withTime = false,
       calendar = false,
+      clock = false
     }: TimeOptions,
   ) {
     this.full = full;
@@ -38,6 +39,7 @@ export class TimeFormatter {
     this.withTime = withTime;
     this.calendar = calendar;
     this.currentDate = new Date();
+    this.clock = clock;
 
     // Si 'time' est un nombre, on le traite comme un timestamp
     if (time instanceof Date) {
@@ -60,7 +62,6 @@ export class TimeFormatter {
   }
 
   format(): string {
-    // Priorité au mode calendrier si activé
      if (this.clock) {
       return this.formatClock();
     }
