@@ -197,16 +197,16 @@ export const MessageBubbleContent = ({
     ? "rounded-3xl"
     : isFirstInCluster
     ? isOwner
-      ? "rounded-br"
-      : "rounded-bl"
+      ? "rounded-br-sm"
+      : "rounded-bl-sm"
     : isMiddleInCluster
     ? isOwner
-      ? "rounded-r"
-      : "rounded-l"
+      ? "rounded-r-sm"
+      : "rounded-l-sm"
     : isLastInCluster
     ? isOwner
-      ? "rounded-tr"
-      : "rounded-tl"
+      ? "rounded-tr-sm"
+      : "rounded-tl-sm"
     : "rounded-3xl";
 
   return (
