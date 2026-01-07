@@ -108,7 +108,7 @@ function groupMessages(messages: MessageData[], limit: number = 5) {
 // --- NOUVEAU COMPOSANT : HEADER DE DATE ---
 function DateHeader({ date }: { date: Date | string }) {
   return (
-    <div className="pointer-events-none select-none flex w-full justify-center py-4">
+    <div className="pointer-events-none select-none flex w-full justify-center pt-4">
       <div className="rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm">
         <Time time={new Date(date)} calendar />
       </div>
