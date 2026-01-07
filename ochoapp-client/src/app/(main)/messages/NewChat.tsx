@@ -1,4 +1,11 @@
-import { ArrowLeft, Check, Frown, Loader2, UsersRound, XIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Frown,
+  Loader2,
+  UsersRound,
+  XIcon,
+} from "lucide-react";
 import { useSession } from "../SessionProvider";
 import UserAvatar from "@/components/UserAvatar";
 import { useInfiniteQuery } from "@tanstack/react-query";
@@ -7,11 +14,6 @@ import { UserData, UsersPage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  useCreateChatRoomMutation,
-  useSaveMessageMutation,
-} from "@/components/messages/mutations";
-import { useActiveRoom } from "@/context/ChatContext";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingButton from "@/components/LoadingButton";
 import UsersList from "@/components/messages/UsersList";
@@ -63,8 +65,27 @@ export default function NewChat({
     unableToSendMessage,
     unableToCreateGroup,
     mustSelectGroupUser,
-    dataError
-  } = t(['newChat', 'newGroup', 'startNewChat', 'you', 'wait', 'create', 'cancel', 'messageYourself', 'friends', 'followers', 'followings', 'suggestions', 'groupNameOptional', 'waitEndOfOperation', 'unableToSendMessage', 'unableToCreateGroup', 'mustSelectGroupUser', 'dataError']);
+    dataError,
+  } = t([
+    "newChat",
+    "newGroup",
+    "startNewChat",
+    "you",
+    "wait",
+    "create",
+    "cancel",
+    "messageYourself",
+    "friends",
+    "followers",
+    "followings",
+    "suggestions",
+    "groupNameOptional",
+    "waitEndOfOperation",
+    "unableToSendMessage",
+    "unableToCreateGroup",
+    "mustSelectGroupUser",
+    "dataError",
+  ]);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -136,7 +157,7 @@ export default function NewChat({
       setSelectedUsers([]);
       setIsgroup(false);
       onClose();
-      
+
       // Nettoyage des écouteurs pour éviter les doublons
       socket.off("room_ready", handleRoomReady);
       socket.off("error_message", handleError);
@@ -156,24 +177,22 @@ export default function NewChat({
     if (user && !isGroup) {
       // Cas 1 : Message Privé (1v1)
       const userId = user.id;
-      
+
       // Cas spécial : Message à soi-même (Saved Messages)
       if (loggedinUser.id === userId) {
-         // Pour l'instant, gardons la logique socket simple, 
-         // ou appelez onChatStart("saved-" + loggedinUser.id) directement sans socket
-         // si c'est géré purement en front comme dans votre GET.
-         onChatStart("saved-" + loggedinUser.id);
-         onClose();
-         return;
+        // Pour l'instant, gardons la logique socket simple,
+        // ou appelez onChatStart("saved-" + loggedinUser.id) directement sans socket
+        // si c'est géré purement en front comme dans votre GET.
+        onChatStart("saved-" + loggedinUser.id);
+        onClose();
+        return;
       }
 
       socket.emit("start_chat", {
         targetUserId: userId,
-        isGroup: false
+        isGroup: false,
       });
-    } 
-    
-    else if (isGroup && selectedUsers.length) {
+    } else if (isGroup && selectedUsers.length) {
       // Cas 2 : Groupe
       socket.emit("start_chat", {
         name,
@@ -257,7 +276,11 @@ export default function NewChat({
                   }}
                 >
                   <div className="flex items-center gap-2">
-                    <UserAvatar userId={loggedinUser.id} avatarUrl={loggedinUser.avatarUrl} size={35} />
+                    <UserAvatar
+                      userId={loggedinUser.id}
+                      avatarUrl={loggedinUser.avatarUrl}
+                      size={35}
+                    />
                     <div>
                       <p>
                         {loggedinUser.displayName} ({you})
@@ -274,7 +297,7 @@ export default function NewChat({
                   </li>
                 )}
                 {isErrorAll && (
-                  <li className="flex flex-col w-full flex-1 select-none items-center px-3 py-8 text-center italic text-muted-foreground">
+                  <li className="flex w-full flex-1 select-none flex-col items-center px-3 py-8 text-center italic text-muted-foreground">
                     <Frown size={100} />
                     <h2 className="text-xl">{dataError}</h2>
                   </li>
@@ -337,7 +360,11 @@ export default function NewChat({
                         onClick={() => removeUser(user)}
                       >
                         <div className="relative animate-scale">
-                          <UserAvatar userId={user.id} avatarUrl={user.avatarUrl} size={48} />
+                          <UserAvatar
+                            userId={user.id}
+                            avatarUrl={user.avatarUrl}
+                            size={48}
+                          />
                           <div className="absolute bottom-0 right-0 flex cursor-pointer items-center justify-center rounded-full bg-muted p-0.5 outline-2 outline-background">
                             <XIcon size={15} />
                           </div>

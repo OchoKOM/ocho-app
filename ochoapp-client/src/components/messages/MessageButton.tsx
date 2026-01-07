@@ -4,7 +4,7 @@ import {
   useSaveMessageMutation,
 } from "./mutations";
 import LoadingButton from "../LoadingButton";
-import { Send } from "lucide-react";
+import { MessageCircleMore, Send } from "lucide-react";
 import { useToast } from "../ui/use-toast";
 import { useActiveRoom } from "@/context/ChatContext";
 import { useRouter } from "next/navigation"; // Importation de useRouter
@@ -12,6 +12,9 @@ import { ButtonProps } from "../ui/button";
 import { cn } from "@/lib/utils";
 import { t } from "@/context/LanguageContext";
 import { useProgress } from "@/context/ProgressContext";
+import { UserData } from "@/lib/types";
+import { useState } from "react";
+import { useSocket } from "../providers/SocketProvider";
 
 interface MessageButtonProps extends ButtonProps {
   userId: string;
@@ -22,63 +25,75 @@ export default function MessageButton({
   className,
   ...props
 }: MessageButtonProps) {
-  const mutation = useCreateChatRoomMutation();
-  const saveMsgMutation = useSaveMessageMutation();
-  const { setActiveRoomId } = useActiveRoom();
   const { user: loggedinUser } = useSession();
+  const { setActiveRoomId } = useActiveRoom();
   const { toast } = useToast();
-  const { unableToSendMessage, message } = t();
-  const { startNavigation: navigate } = useProgress(); // Utilisation de useRouter
+  const { message } = t();
+  const [isPending, setIsPending] = useState(false);
+  const { socket } = useSocket();
+
+  const onChatStart = (roomId: string) => {
+    setActiveRoomId(roomId);
+  }
+
+  const handleChatStart = (user: UserData | null = null) => {
+      if (isPending) return;
+      if (!socket) return;
+  
+      setIsPending(true);
+  
+      // Définir les callbacks pour la réponse du serveur
+      // On utilise .once pour n'écouter qu'une seule fois la réponse
+      const handleRoomReady = (room: any) => {
+        setIsPending(false);
+  
+        // Nettoyage des écouteurs pour éviter les doublons
+        socket.off("room_ready", handleRoomReady);
+        socket.off("error_message", handleError);
+      };
+  
+      const handleError = (msg: string) => {
+        setIsPending(false);
+        toast({ variant: "destructive", description: msg });
+        socket.off("room_ready", handleRoomReady);
+        socket.off("error_message", handleError);
+      };
+  
+      socket.on("room_ready", handleRoomReady);
+      socket.on("error_message", handleError);
+  
+      // Logique d'envoi
+      if (user) {
+        // Cas 1 : Message Privé (1v1)
+        const userId = user.id;
+  
+        // Cas spécial : Message à soi-même (Saved Messages)
+        if (loggedinUser.id === userId) {
+          onChatStart("saved-" + loggedinUser.id);
+          return;
+        }
+  
+        socket.emit("start_chat", {
+          targetUserId: userId,
+          isGroup: false,
+        });
+      }
+    };
 
   const handleSubmit = () => {
-    if (loggedinUser.id === userId) {
-      saveMsgMutation.mutate(
-        {},
-        {
-          onSuccess: ({ newRoom }) => {
-            setActiveRoomId(newRoom.id);
-            navigate("/messages"); // Utilisation de router.push au lieu de redirect
-          },
-          onError(error) {
-            console.error(error);
-            toast({
-              variant: "destructive",
-              description: unableToSendMessage,
-            });
-          },
-        },
-      );
-      return;
+    if (loggedinUser) {
+      handleChatStart(loggedinUser);
     }
-    mutation.mutate(
-      {
-        name: "",
-        isGroup: false,
-        members: [userId],
-      },
-      {
-        onSuccess: ({ newRoom }) => {
-          setActiveRoomId(newRoom.id);
-          navigate("/messages");
-        },
-        onError(error) {
-          console.error(error);
-          toast({
-            variant: "destructive",
-            description: unableToSendMessage,
-          });
-        },
-      },
-    );
   };
 
   return (
     <LoadingButton
-      loading={saveMsgMutation.isPending || mutation.isPending}
+      loading={isPending}
       className={cn("bg-primary", className)}
       onClick={handleSubmit}
+      {...props}
     >
-      {!(saveMsgMutation.isPending || mutation.isPending) && <Send size={24} />}{" "}
+      {!(isPending) && <MessageCircleMore size={24} />}{" "}
       {message}
     </LoadingButton>
   );
