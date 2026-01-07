@@ -633,7 +633,7 @@ export default function Message({
               )}
             >
               {message.senderId !== loggedUser.id && (
-                <span className="py-2 z-20">
+                <span className="py-2 z-10">
                   <UserAvatar
                     userId={message.senderId}
                     avatarUrl={message.sender?.avatarUrl}

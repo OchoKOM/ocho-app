@@ -84,7 +84,6 @@ export default function ReactionOverlay({
 
   const overlayContent = (
     <div className="fixed inset-0 isolate z-50 flex flex-col font-sans">
-      {/* Arrière-plan cliquable pour fermer */}
       <div
         className={cn(
           "absolute inset-0 bg-background/60 backdrop-blur-sm transition-opacity duration-200",
@@ -93,10 +92,8 @@ export default function ReactionOverlay({
         onClick={onClose}
       />
 
-      {/* Conteneur principal du message et des menus */}
-      {/* CORRECTION ICI : pointer-events-none permet aux clics sur le "vide" ou le message cloné de traverser jusqu'au fond */}
       <div
-        className="pointer-events-none absolute transition-transform duration-300 ease-out will-change-transform"
+        className="absolute transition-transform duration-300 ease-out will-change-transform"
         style={{
           top: originalRect.top,
           left: originalRect.left,
@@ -114,11 +111,9 @@ export default function ReactionOverlay({
           />
         </div>
 
-        {/* Picker et Menus */}
-        {/* CORRECTION ICI : pointer-events-auto réactive les clics uniquement pour les éléments interactifs */}
         <div
           className={cn(
-            "pointer-events-auto absolute top-full z-10 mt-2 flex flex-col gap-2 transition-all duration-300",
+            "absolute top-full z-10 mt-2 flex flex-col gap-2 transition-all duration-300",
             isOwner ? "right-0 items-end" : "left-0 items-start",
             mounted ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0",
           )}
@@ -143,7 +138,7 @@ export default function ReactionOverlay({
                     key={emoji}
                     onClick={() => handleReact(emoji)}
                     className={cn(
-                        "font-emoji flex size-10 max-sm:size-8 max-sm:text-xl cursor-pointer items-center justify-center rounded-full text-2xl transition-transform hover:scale-125 active:scale-95",
+                        "font-emoji flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-2xl transition-transform hover:scale-125 active:scale-95",
                         isActive ? "bg-primary/20 ring-2 ring-primary" : "hover:bg-muted"
                     )}
                   >
@@ -153,7 +148,7 @@ export default function ReactionOverlay({
                 <div className="mx-1 h-6 w-[1px] bg-border"></div>
                 <button
                   onClick={() => setShowFullPicker(true)}
-                  className="flex size-10 max-sm:size-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
                 >
                   <Plus size={20} />
                 </button>
@@ -300,10 +295,6 @@ export function ReactionList ({
   const showOverflow = sortedReactions.length > 3;
   const visibleReactions = showOverflow ? sortedReactions.slice(0, 2) : sortedReactions;
   const overflowCount = sortedReactions.length - 2;
-
-  if (!reactions.length) {
-    return null
-  }
 
   return (
     <div className="flex flex-wrap gap-1 mt-1 z-20">
@@ -453,17 +444,17 @@ export function ReactionDetailsPopover({
                   </div>
                   
                   {isMe && (
-                      <button
-                       onClick={(e) => {
-                           e.stopPropagation();
-                           onRemoveReaction();
-                           onClose();
-                       }}
-                       className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all max-sm:opacity-100"
-                       title="Retirer ma réaction"
-                      >
-                          <HeartOff size={14} />
-                      </button>
+                     <button
+                      onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveReaction();
+                          onClose();
+                      }}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all max-sm:opacity-100"
+                      title="Retirer ma réaction"
+                     >
+                         <HeartOff size={14} />
+                     </button>
                   )}
                 </div>
               );
