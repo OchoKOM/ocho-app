@@ -753,7 +753,7 @@ export function MessageForm({
   return (
     <div
       className={cn(
-        "relative flex w-full items-end gap-1 rounded-3xl border border-input bg-background p-1 ring-primary ring-offset-background transition-[width] duration-75 has-[textarea:focus-visible]:outline-none has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring has-[textarea:focus-visible]:ring-offset-2",
+        "relative flex w-full items-end gap-1 rounded-3xl border border-input bg-background p-1 ring-primary ring-offset-background transition-[width] duration-75 has-[textarea:focus-visible]:outline-none has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring has-[textarea:focus-visible]:ring-offset-2 z-20",
         expanded ? "" : "aspect-square w-fit rounded-full p-0",
       )}
     >
@@ -886,12 +886,12 @@ export function TypingIndicator({ typingUsers = [] }: TypingIndicatorProps) {
         <UserAvatar
           userId={typingUsers[0].id}
           avatarUrl={typingUsers[0].avatarUrl}
-          size={32}
+          size={24}
           key={typingUsers[0].id}
           className="border-2 border-background"
         />
       ) : (
-        <div className="z-10 flex size-5 min-h-6 min-w-6 items-center justify-center rounded-full bg-muted text-sm font-bold text-muted-foreground">
+        <div className="z-10 flex size-6 min-h-6 min-w-6 items-center justify-center rounded-full bg-muted text-sm font-bold text-muted-foreground">
           {typingUsers.length || 0}
         </div>
       )}
