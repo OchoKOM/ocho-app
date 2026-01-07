@@ -516,8 +516,7 @@ export default function Chat({ roomId, initialData, onClose }: ChatProps) {
         showDateHeader = true;
       }
     }
-
-    // Rendu du cluster
+    if (!group.length) return null;
     return (
       <div key={`cluster-${groupIndex}`} className="contents">
         <div className="flex w-full flex-col-reverse">
