@@ -108,6 +108,7 @@ export default function ReactionOverlay({
             isOwner={isOwner}
             unavailableMessage={unavailableMessage}
             isClone={true}
+            createdAt={message.createdAt}
           />
         </div>
 
