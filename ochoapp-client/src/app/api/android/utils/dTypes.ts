@@ -141,6 +141,10 @@ export interface PostsPage {
   posts: Post[];
   nextCursor: string | null;
 }
+export interface PostsIdsPage {
+  posts: string[];
+  nextCursor: string | null;
+}
 
 export interface CommentsPage {
   comments: Comment[];
