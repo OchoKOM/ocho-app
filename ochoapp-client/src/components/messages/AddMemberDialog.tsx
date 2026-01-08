@@ -93,7 +93,7 @@ export function AddMemberForm({ onAdd, room }: AddMemberFormProps) {
     isFetchingNextPage,
     status,
   } = useInfiniteQuery({
-    queryKey: ["group", "users", "search", query],
+    queryKey: ["group", "users", "add", "search", room.id],
     queryFn: ({ pageParam }) =>
       kyInstance
         .get("/api/users/search", {
