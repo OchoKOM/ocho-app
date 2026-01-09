@@ -16,16 +16,7 @@ export async function GET(req: NextRequest) {
   } else if (platform.toLowerCase() === "ios") {
     isUpToDate = parseInt(version) >= iosCurrentVersion;
   }
-  return NextResponse.json<
-    ApiResponse<{
-      isUpToDate: boolean;
-      currentVersion: number;
-      versionName: string;
-      downloadUrl: string;
-    }>
-  >({
-    success: true,
-    data: {
+  const data = {
       isUpToDate: isUpToDate,
       currentVersion:
         platform.toLowerCase() === "android"
@@ -36,7 +27,19 @@ export async function GET(req: NextRequest) {
         platform.toLowerCase() === "android"
           ? androidVersionName
           : iosVersionName,
-    },
+    }
+    console.log(data);
+    
+  return NextResponse.json<
+    ApiResponse<{
+      isUpToDate: boolean;
+      currentVersion: number;
+      versionName: string;
+      downloadUrl: string;
+    }>
+  >({
+    success: true,
+    data,
     message: isUpToDate
       ? "L'application est à jour."
       : "Une mise à jour est disponible.",
