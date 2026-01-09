@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
           ? androidVersionName
           : iosVersionName,
     }
-    console.log(data);
+    console.log(platform.toLowerCase(), process.env.ANDROID_VERSION_NAME, data);
     
   return NextResponse.json<
     ApiResponse<{
