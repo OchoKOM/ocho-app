@@ -7,9 +7,9 @@ export async function GET(req: NextRequest) {
   const androidCurrentVersion = parseInt(
     process.env.ANDROID_CURRENT_VERSION || "1",
   );
-  const androidVersionName = process.env.ANDROID_VERSION_NAME || "";
+  const androidVersionName = process.env.ANDROID_CURRENT_VERSION_NAME || "";
   const iosCurrentVersion = parseInt(process.env.IOS_CURRENT_VERSION || "1");
-  const iosVersionName = process.env.IOS_VERSION_NAME || "";
+  const iosVersionName = process.env.IOS_CURRENT_VERSION_NAME || "";
   let isUpToDate = true;
   if (platform.toLowerCase() === "android") {
     isUpToDate = parseInt(version) >= androidCurrentVersion;
@@ -28,7 +28,6 @@ export async function GET(req: NextRequest) {
           ? androidVersionName
           : iosVersionName,
     }
-    console.log(platform.toLowerCase(), process.env.ANDROID_VERSION_NAME, data);
     
   return NextResponse.json<
     ApiResponse<{
