@@ -27,13 +27,40 @@ export async function GET() {
         },
         messages: {
           some: {
-            type: { not: "CREATE" },
-            reads: {
-              none: {
-                userId: user.id,
+            AND: [
+              { type: { not: "CREATE" } },
+              {
+                reads: {
+                  none: {
+                    userId: user.id,
+                  },
+                },
               },
-            },
-            senderId: { not: user.id },
+              {
+                OR: [
+                  {
+                    AND: [
+                      { senderId: { not: user.id } },
+                      {
+                        type: {
+                          not: "REACTION",
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    AND: [
+                      {
+                        type: "REACTION",
+                      },
+                      {
+                        OR: [{ recipientId: user.id }, { senderId: user.id }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
           },
         },
       },

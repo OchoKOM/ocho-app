@@ -36,16 +36,43 @@ export async function getUnreadRoomsCount(userId: string): Promise<number> {
         },
       },
       messages: {
-        some: {
-          type: { not: "CREATE" },
-          reads: {
-            none: {
-              userId: userId,
-            },
+          some: {
+            AND: [
+              { type: { not: "CREATE" } },
+              {
+                reads: {
+                  none: {
+                    userId: user.id,
+                  },
+                },
+              },
+              {
+                OR: [
+                  {
+                    AND: [
+                      { senderId: { not: user.id } },
+                      {
+                        type: {
+                          not: "REACTION",
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    AND: [
+                      {
+                        type: "REACTION",
+                      },
+                      {
+                        OR: [{ recipientId: user.id }, { senderId: user.id }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
           },
-          senderId: { not: userId  },
         },
-      },
     },
   });
   return unreadCount;

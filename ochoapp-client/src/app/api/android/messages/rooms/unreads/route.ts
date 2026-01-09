@@ -7,13 +7,13 @@ import { NextResponse } from "next/server";
 export async function GET() {
   try {
     const { user, message } = await getCurrentUser();
-        if (!user) {
-          return NextResponse.json({
-            success: false,
-            message: message || "Utilisateur non authentifié.",
-            name: "unauthorized",
-          } as ApiResponse<null>);
-        }
+    if (!user) {
+      return NextResponse.json({
+        success: false,
+        message: message || "Utilisateur non authentifié.",
+        name: "unauthorized",
+      } as ApiResponse<null>);
+    }
 
     const unreadCount = await prisma.room.count({
       where: {
@@ -32,13 +32,40 @@ export async function GET() {
         },
         messages: {
           some: {
-            type: { not: "CREATE" },
-            reads: {
-              none: {
-                userId: user.id,
+            AND: [
+              { type: { not: "CREATE" } },
+              {
+                reads: {
+                  none: {
+                    userId: user.id,
+                  },
+                },
               },
-            },
-            senderId: { not: user.id },
+              {
+                OR: [
+                  {
+                    AND: [
+                      { senderId: { not: user.id } },
+                      {
+                        type: {
+                          not: "REACTION",
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    AND: [
+                      {
+                        type: "REACTION",
+                      },
+                      {
+                        OR: [{ recipientId: user.id }, { senderId: user.id }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
           },
         },
       },
@@ -47,9 +74,15 @@ export async function GET() {
     const data: NotificationCountInfo = {
       unreadCount,
     };
-    return NextResponse.json({ success: true, data } as ApiResponse<NotificationCountInfo>);
+    return NextResponse.json({
+      success: true,
+      data,
+    } as ApiResponse<NotificationCountInfo>);
   } catch (error) {
-    console.error("Erreur lors de la récupération du nombre de rooms non lues :", error);
+    console.error(
+      "Erreur lors de la récupération du nombre de rooms non lues :",
+      error,
+    );
     return NextResponse.json({
       success: false,
       message: "Erreur interne du serveur",
