@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
         platform.toLowerCase() === "android"
           ? androidCurrentVersion
           : iosCurrentVersion,
-        downloadUrl: "https://github.com/devTeam222/OchoApp/releases/tag/app",
+        downloadUrl: "https://github.com/MartinOcho/ocho-app/releases/download/app/app-release.apk",
       versionName:
         platform.toLowerCase() === "android"
           ? androidVersionName
