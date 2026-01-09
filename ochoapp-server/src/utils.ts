@@ -25,7 +25,7 @@ export async function getUnreadRoomsCount(userId: string): Promise<number> {
       members: {
         some: {
           AND: [
-            { userId: userId },
+            { userId },
             {
               joinedAt: {
                 lte: new Date(),
@@ -42,7 +42,7 @@ export async function getUnreadRoomsCount(userId: string): Promise<number> {
               {
                 reads: {
                   none: {
-                    userId: user.id,
+                    userId,
                   },
                 },
               },
@@ -50,7 +50,7 @@ export async function getUnreadRoomsCount(userId: string): Promise<number> {
                 OR: [
                   {
                     AND: [
-                      { senderId: { not: user.id } },
+                      { senderId: { not: userId } },
                       {
                         type: {
                           not: "REACTION",
@@ -64,7 +64,7 @@ export async function getUnreadRoomsCount(userId: string): Promise<number> {
                         type: "REACTION",
                       },
                       {
-                        OR: [{ recipientId: user.id }, { senderId: user.id }],
+                        OR: [{ recipientId: userId }, { senderId: userId }],
                       },
                     ],
                   },
