@@ -23,9 +23,6 @@ export async function GET(req: NextRequest) {
         name: "unauthorized",
         } as ApiResponse<null>);
     }
-    if (!loggedInUser) {
-      return Response.json({ error: "Action non autorisée" }, { status: 401 });
-    }
 
     const user = await prisma.user.findFirst({
       where: {
@@ -35,7 +32,11 @@ export async function GET(req: NextRequest) {
     });
 
     if (!user) {
-      return Response.json({ error: "Action non autorisée" }, { status: 401 });
+      return NextResponse.json({
+        success: false,
+        message: message || "Utilisateur non authentifié.",
+        name: "unauthorized",
+        } as ApiResponse<null>);
     }
 
     const userId = user.id;

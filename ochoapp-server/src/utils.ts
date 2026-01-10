@@ -418,7 +418,7 @@ export function groupManagment(io: Server<DefaultEventsMap, DefaultEventsMap, De
 
       if (!members?.length) throw new Error("Selectionnez au moins un utilisateur");
 
-      const room = await prisma.room.findUnique({ where: { id: roomId }, include: { members: true } });
+      const room = await prisma.room.findFirst({ where: { id: roomId }, include: { members: true } });
       if (!room || !room.isGroup) throw new Error("Groupe invalide");
 
       const existingMembers = room.members;
