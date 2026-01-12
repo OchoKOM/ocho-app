@@ -193,10 +193,25 @@ export async function GET(
           suggestions.length > pageSize
             ? suggestions.slice(0, pageSize)
             : suggestions;
+        return NextResponse.json<
+          ApiResponse<{
+            users: typeof suggestionsPage;
+            nextCursor: string | null;
+          }>
+        >({
+          success: true,
+          data: { users: suggestionsPage, nextCursor },
+        });
       }
     }
-  } catch (error) {
-    console.error(error);
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+  }  catch (error) {
+    console.error("Erreur lors de la récupération des lectures du message :", error);
+    return NextResponse.json({
+      success: false,
+      message: "Erreur interne du serveur",
+      name: "server-error",
+      data: null,
+      error: error instanceof Error ? error.message : String(error),
+    } as ApiResponse<null>);
   }
 }
